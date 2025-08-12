@@ -7,6 +7,7 @@ import { RegisterForm } from './components/auth/RegisterForm';
 import { ForgotPasswordForm } from './components/auth/ForgotPasswordForm';
 import { ResetPasswordForm } from './components/auth/ResetPasswordForm';
 import { UserProfile } from './components/auth/UserProfile';
+import { LandingPage } from './components/LandingPage';
 import { Dashboard } from './components/Dashboard';
 import { MindMapCanvas } from './components/MindMapCanvas';
 import { InteractiveNodeCanvas } from './components/InteractiveNodeCanvas';
@@ -41,6 +42,9 @@ function App() {
   return (
     <Router>
       <Routes>
+        {/* ランディングページ（エントリー画面） */}
+        <Route path="/" element={<LandingPage />} />
+        
         {/* Public routes (redirect to dashboard if authenticated) */}
         <Route 
           path="/login" 
@@ -118,10 +122,10 @@ function App() {
         />
         
         {/* Default redirect */}
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/home" element={<Navigate to="/dashboard" replace />} />
         
         {/* Catch all route */}
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
   );
