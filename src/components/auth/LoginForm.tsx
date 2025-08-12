@@ -66,7 +66,7 @@ export const LoginForm: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
       {/* 言語切り替え */}
       <div className="absolute top-4 right-4">
         <LanguageSwitcher variant="compact" />
@@ -74,11 +74,11 @@ export const LoginForm: React.FC = () => {
       
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
-          <div className="mx-auto h-12 w-12 bg-blue-600 rounded-xl flex items-center justify-center">
+          <div className="mx-auto h-12 w-12 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
             <LogIn className="h-6 w-6 text-white" />
           </div>
-          <h2 className="mt-6 text-3xl font-bold text-gray-900">{t('auth.welcomeBack')}</h2>
-          <p className="mt-2 text-sm text-gray-600">
+          <h2 className="mt-6 text-3xl font-bold text-slate-800">{t('auth.welcomeBack')}</h2>
+          <p className="mt-2 text-sm text-slate-600">
             {t('auth.signInToAccount')}
           </p>
         </div>
@@ -87,12 +87,12 @@ export const LoginForm: React.FC = () => {
           <div className="space-y-4">
             {/* Email Field */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="email" className="block text-sm font-semibold text-slate-700 mb-1">
                 {t('auth.emailAddress')}
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-gray-400" />
+                  <Mail className="h-5 w-5 text-slate-400" />
                 </div>
                 <input
                   id="email"
@@ -102,7 +102,7 @@ export const LoginForm: React.FC = () => {
                   value={email}
                   onChange={(e) => handleInputChange('email', e.target.value)}
                   className={`block w-full pl-10 pr-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
-                    validationErrors.email ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                    validationErrors.email ? 'border-red-300 bg-red-50' : 'border-slate-300 bg-white/50 backdrop-blur-sm'
                   }`}
                   placeholder={t('auth.enterEmail')}
                 />
@@ -114,12 +114,12 @@ export const LoginForm: React.FC = () => {
 
             {/* Password Field */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="password" className="block text-sm font-semibold text-slate-700 mb-1">
                 {t('common.password')}
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-gray-400" />
+                  <Lock className="h-5 w-5 text-slate-400" />
                 </div>
                 <input
                   id="password"
@@ -129,7 +129,7 @@ export const LoginForm: React.FC = () => {
                   value={password}
                   onChange={(e) => handleInputChange('password', e.target.value)}
                   className={`block w-full pl-10 pr-10 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
-                    validationErrors.password ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                    validationErrors.password ? 'border-red-300 bg-red-50' : 'border-slate-300 bg-white/50 backdrop-blur-sm'
                   }`}
                   placeholder={t('auth.enterPassword')}
                 />
@@ -139,9 +139,9 @@ export const LoginForm: React.FC = () => {
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? (
-                    <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                    <EyeOff className="h-5 w-5 text-slate-400 hover:text-slate-600" />
                   ) : (
-                    <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                    <Eye className="h-5 w-5 text-slate-400 hover:text-slate-600" />
                   )}
                 </button>
               </div>
@@ -172,7 +172,7 @@ export const LoginForm: React.FC = () => {
           <button
             type="submit"
             disabled={loading}
-            className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg"
           >
             {loading ? (
               <div className="flex items-center">
@@ -186,11 +186,11 @@ export const LoginForm: React.FC = () => {
 
           {/* Sign Up Link */}
           <div className="text-center">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-slate-600">
               {t('auth.dontHaveAccount')}{' '}
               <Link
                 to="/register"
-                className="font-medium text-blue-600 hover:text-blue-500 transition-colors"
+                className="font-semibold text-blue-600 hover:text-blue-500 transition-colors"
               >
                 {t('auth.signUp')}
               </Link>
