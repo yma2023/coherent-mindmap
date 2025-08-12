@@ -184,7 +184,7 @@ export const AdvancedMindMap: React.FC = () => {
     });
 
     setNextNodeId(prev => prev + 1);
-  }, [nodes, nextNodeId, calculateNewNodePosition, calculateTextDimensions]);
+  }, [nodes, nextNodeId, calculateNewNodePosition, calculateTextDimensions, t]);
 
   // Delete node
   const deleteNode = useCallback((nodeId: string) => {
@@ -476,7 +476,7 @@ export const AdvancedMindMap: React.FC = () => {
                   }}
                 >
                   <Plus className="w-3 h-3" />
-                  <span>{t('common.delete')}</span>
+                </button>
               ))}
 
               {/* Node content */}
