@@ -2,8 +2,11 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Eye, EyeOff, Mail, Lock, LogIn } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
+import { useTranslation } from '../../hooks/useTranslation';
+import { LanguageSwitcher } from '../LanguageSwitcher';
 
 export const LoginForm: React.FC = () => {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -17,16 +20,16 @@ export const LoginForm: React.FC = () => {
     // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email) {
-      errors.email = 'Email is required';
+      errors.email = t('auth.emailRequired');
     } else if (!emailRegex.test(email)) {
-      errors.email = 'Please enter a valid email address';
+      errors.email = t('auth.invalidEmail');
     }
 
     // Password validation
     if (!password) {
-      errors.password = 'Password is required';
+      errors.password = t('auth.passwordRequired');
     } else if (password.length < 6) {
-      errors.password = 'Password must be at least 6 characters';
+      errors.password = t('auth.passwordTooShort');
     }
 
     setValidationErrors(errors);
@@ -64,14 +67,19 @@ export const LoginForm: React.FC = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
+      {/* 言語切り替え */}
+      <div className="absolute top-4 right-4">
+        <LanguageSwitcher variant="compact" />
+      </div>
+      
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
           <div className="mx-auto h-12 w-12 bg-blue-600 rounded-xl flex items-center justify-center">
             <LogIn className="h-6 w-6 text-white" />
           </div>
-          <h2 className="mt-6 text-3xl font-bold text-gray-900">Welcome back</h2>
+          <h2 className="mt-6 text-3xl font-bold text-gray-900">{t('auth.welcomeBack')}</h2>
           <p className="mt-2 text-sm text-gray-600">
-            Sign in to your MindFlow account
+            {t('auth.signInToAccount')}
           </p>
         </div>
 
@@ -80,7 +88,7 @@ export const LoginForm: React.FC = () => {
             {/* Email Field */}
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                Email address
+                {t('auth.emailAddress')}
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -96,7 +104,7 @@ export const LoginForm: React.FC = () => {
                   className={`block w-full pl-10 pr-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
                     validationErrors.email ? 'border-red-300 bg-red-50' : 'border-gray-300'
                   }`}
-                  placeholder="Enter your email"
+                  placeholder={t('auth.enterEmail')}
                 />
               </div>
               {validationErrors.email && (
@@ -107,7 +115,7 @@ export const LoginForm: React.FC = () => {
             {/* Password Field */}
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                Password
+                {t('common.password')}
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -123,7 +131,7 @@ export const LoginForm: React.FC = () => {
                   className={`block w-full pl-10 pr-10 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
                     validationErrors.password ? 'border-red-300 bg-red-50' : 'border-gray-300'
                   }`}
-                  placeholder="Enter your password"
+                  placeholder={t('auth.enterPassword')}
                 />
                 <button
                   type="button"
@@ -156,7 +164,7 @@ export const LoginForm: React.FC = () => {
               to="/forgot-password"
               className="text-sm text-blue-600 hover:text-blue-500 transition-colors"
             >
-              Forgot your password?
+              {t('auth.forgotPassword')}
             </Link>
           </div>
 
@@ -169,22 +177,22 @@ export const LoginForm: React.FC = () => {
             {loading ? (
               <div className="flex items-center">
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                Signing in...
+                {t('auth.signingIn')}
               </div>
             ) : (
-              'Sign in'
+              t('auth.signIn')
             )}
           </button>
 
           {/* Sign Up Link */}
           <div className="text-center">
             <p className="text-sm text-gray-600">
-              Don't have an account?{' '}
+              {t('auth.dontHaveAccount')}{' '}
               <Link
                 to="/register"
                 className="font-medium text-blue-600 hover:text-blue-500 transition-colors"
               >
-                Sign up
+                {t('auth.signUp')}
               </Link>
             </p>
           </div>

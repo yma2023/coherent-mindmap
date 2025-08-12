@@ -1,5 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Plus, X, Move } from 'lucide-react';
+import { useTranslation } from '../hooks/useTranslation';
+import { LanguageSwitcher } from './LanguageSwitcher';
 
 interface Node {
   id: string;
@@ -37,6 +39,7 @@ const MIN_SCALE = 0.5;
 const MAX_SCALE = 2.0;
 
 export const AdvancedMindMap: React.FC = () => {
+  const { t } = useTranslation();
   const [nodes, setNodes] = useState<Node[]>([
     {
       id: '1',
@@ -44,7 +47,7 @@ export const AdvancedMindMap: React.FC = () => {
       y: 300,
       width: MIN_NODE_WIDTH,
       height: MIN_NODE_HEIGHT,
-      content: 'Central Idea',
+      content: t('mindMap.newNode'),
       children: [],
       isEditing: false,
       isSelected: false,
@@ -154,7 +157,7 @@ export const AdvancedMindMap: React.FC = () => {
       y: position.y,
       width: dimensions.width,
       height: dimensions.height,
-      content: 'New Node',
+      content: t('mindMap.newNode'),
       parentId,
       children: [],
       isEditing: true,
@@ -377,6 +380,11 @@ export const AdvancedMindMap: React.FC = () => {
 
   return (
     <div className="w-full h-screen bg-gray-100 relative overflow-hidden">
+      {/* 言語切り替え */}
+      <div className="absolute top-4 right-4 z-50">
+        <LanguageSwitcher variant="compact" />
+      </div>
+      
       <div
         ref={canvasRef}
         className="w-full h-full cursor-grab active:cursor-grabbing"
@@ -468,7 +476,7 @@ export const AdvancedMindMap: React.FC = () => {
                   }}
                 >
                   <Plus className="w-3 h-3" />
-                </button>
+                  <span>{t('common.delete')}</span>
               ))}
 
               {/* Node content */}
@@ -503,14 +511,14 @@ export const AdvancedMindMap: React.FC = () => {
 
       {/* Controls */}
       <div className="absolute top-4 left-4 bg-white p-4 rounded-lg shadow-md">
-        <h3 className="font-semibold text-gray-800 mb-2">Mind Map Controls</h3>
+        <h3 className="font-semibold text-gray-800 mb-2">{t('mindMap.controls.title') || 'Mind Map Controls'}</h3>
         <div className="text-sm text-gray-600 space-y-1">
-          <p>• Click node to select</p>
-          <p>• Double-click to edit text</p>
-          <p>• Hover for + buttons to add nodes</p>
-          <p>• Drag nodes to move them</p>
-          <p>• Scroll to zoom in/out</p>
-          <p>• Drag canvas to pan</p>
+          <p>{t('mindMap.controls.clickToSelect')}</p>
+          <p>{t('mindMap.controls.doubleClickToEdit')}</p>
+          <p>{t('mindMap.controls.hoverForButtons')}</p>
+          <p>{t('mindMap.controls.dragToMove')}</p>
+          <p>{t('mindMap.controls.scrollToZoom')}</p>
+          <p>{t('mindMap.controls.dragCanvas')}</p>
         </div>
       </div>
 

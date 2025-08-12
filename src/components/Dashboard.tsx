@@ -2,8 +2,11 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Map, Users, Clock, Settings, LogOut } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
+import { useTranslation } from '../hooks/useTranslation';
+import { LanguageSwitcher } from './LanguageSwitcher';
 
 export const Dashboard: React.FC = () => {
+  const { t } = useTranslation();
   const { user, profile, logout } = useAuthStore();
   const navigate = useNavigate();
 
@@ -51,6 +54,7 @@ export const Dashboard: React.FC = () => {
             </div>
             
             <div className="flex items-center space-x-4">
+              <LanguageSwitcher variant="compact" />
               <button
                 onClick={() => navigate('/profile')}
                 className="flex items-center space-x-2 text-gray-700 hover:text-gray-900 transition-colors"
@@ -79,10 +83,10 @@ export const Dashboard: React.FC = () => {
         {/* Welcome Section */}
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            Welcome back, {profile?.full_name || 'there'}!
+            {t('dashboard.welcomeBack')}, {profile?.full_name || t('dashboard.welcomeThere')}!
           </h2>
           <p className="text-gray-600">
-            Ready to create amazing mind maps? Start by creating a new map or continue working on existing ones.
+            {t('dashboard.readyToCreate')}
           </p>
         </div>
 
@@ -98,9 +102,9 @@ export const Dashboard: React.FC = () => {
                 →
               </div>
             </div>
-            <h3 className="text-lg font-semibold mb-2">Create New Mind Map</h3>
+            <h3 className="text-lg font-semibold mb-2">{t('dashboard.createNewMindMap')}</h3>
             <p className="text-blue-100 text-sm">
-              Start with a blank canvas and let your ideas flow
+              {t('dashboard.startWithBlank')}
             </p>
           </button>
 
@@ -114,9 +118,9 @@ export const Dashboard: React.FC = () => {
                 →
               </div>
             </div>
-            <h3 className="text-lg font-semibold mb-2">Advanced Mind Map</h3>
+            <h3 className="text-lg font-semibold mb-2">{t('dashboard.advancedMindMap')}</h3>
             <p className="text-green-100 text-sm">
-              Full-featured mind mapping with drag & drop
+              {t('dashboard.fullFeatured')}
             </p>
           </button>
 
@@ -125,9 +129,9 @@ export const Dashboard: React.FC = () => {
               <Users className="h-8 w-8 text-green-600" />
               <span className="text-2xl font-bold text-gray-900">3</span>
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Collaborators</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('dashboard.collaborators')}</h3>
             <p className="text-gray-600 text-sm">
-              People working with you on mind maps
+              {t('dashboard.peopleWorking')}
             </p>
           </div>
 
@@ -136,9 +140,9 @@ export const Dashboard: React.FC = () => {
               <Map className="h-8 w-8 text-purple-600" />
               <span className="text-2xl font-bold text-gray-900">{recentMaps.length}</span>
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Total Maps</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('dashboard.totalMaps')}</h3>
             <p className="text-gray-600 text-sm">
-              Mind maps you've created or collaborated on
+              {t('dashboard.mapsCreated')}
             </p>
           </div>
         </div>
@@ -147,9 +151,9 @@ export const Dashboard: React.FC = () => {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">Recent Mind Maps</h3>
+              <h3 className="text-lg font-semibold text-gray-900">{t('dashboard.recentMindMaps')}</h3>
               <button className="text-blue-600 hover:text-blue-700 text-sm font-medium transition-colors">
-                View all
+                {t('dashboard.viewAll')}
               </button>
             </div>
           </div>
@@ -169,14 +173,14 @@ export const Dashboard: React.FC = () => {
                     <div>
                       <h4 className="text-sm font-medium text-gray-900">{map.name}</h4>
                       <div className="flex items-center space-x-4 mt-1">
-                        <span className="text-xs text-gray-500">{map.nodes} nodes</span>
-                        <span className="text-xs text-gray-500">{map.collaborators} collaborators</span>
+                        <span className="text-xs text-gray-500">{map.nodes} {t('dashboard.nodes')}</span>
+                        <span className="text-xs text-gray-500">{map.collaborators} {t('dashboard.collaborators')}</span>
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center space-x-2 text-xs text-gray-500">
                     <Clock className="h-4 w-4" />
-                    <span>{map.updated}</span>
+                    <span>{map.updated} {t('dashboard.updated')}</span>
                   </div>
                 </div>
               </div>
@@ -188,16 +192,16 @@ export const Dashboard: React.FC = () => {
         {recentMaps.length === 0 && (
           <div className="text-center py-12">
             <Map className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No mind maps yet</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">{t('dashboard.noMapsYet')}</h3>
             <p className="text-gray-600 mb-6">
-              Create your first mind map to get started with organizing your ideas.
+              {t('dashboard.createFirstMap')}
             </p>
             <button
               onClick={handleCreateMindMap}
               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
             >
               <Plus className="h-4 w-4 mr-2" />
-              Create Mind Map
+              {t('dashboard.createNewMindMap')}
             </button>
           </div>
         )}

@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Brain, Sparkles, Users, Zap, ArrowRight, Star } from 'lucide-react';
+import { LanguageSwitcher } from './LanguageSwitcher';
+import { useTranslation } from '../hooks/useTranslation';
 
 export const LandingPage: React.FC = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
@@ -50,19 +53,21 @@ export const LandingPage: React.FC = () => {
               <span>Premium</span>
             </div>
           </div>
+          
+          {/* 言語切り替え */}
+          <div className="language-switcher">
+            <LanguageSwitcher variant="header" />
+          </div>
         </header>
 
         {/* メインセクション */}
         <main className="landing-main">
           <div className="hero-section">
             <h2 className="hero-title">
-              <span className="title-line">思考を</span>
-              <span className="title-line gold-text">可視化</span>
-              <span className="title-line">する</span>
+              <span className="title-line">{t('landing.title')}</span>
             </h2>
             <p className="hero-subtitle">
-              AIを活用した次世代マインドマップで、<br />
-              あなたのアイデアを無限に広げましょう
+              {t('landing.subtitle')}
             </p>
 
             {/* 特徴カード */}
@@ -71,22 +76,22 @@ export const LandingPage: React.FC = () => {
                 <div className="feature-icon">
                   <Sparkles />
                 </div>
-                <h3>AI アシスタント</h3>
-                <p>自動的にアイデアを生成し、思考を拡張</p>
+                <h3>{t('landing.features.ai.title')}</h3>
+                <p>{t('landing.features.ai.description')}</p>
               </div>
               <div className="feature-card">
                 <div className="feature-icon">
                   <Users />
                 </div>
-                <h3>リアルタイム共同編集</h3>
-                <p>チームでリアルタイムに協力</p>
+                <h3>{t('landing.features.collaboration.title')}</h3>
+                <p>{t('landing.features.collaboration.description')}</p>
               </div>
               <div className="feature-card">
                 <div className="feature-icon">
                   <Zap />
                 </div>
-                <h3>高速パフォーマンス</h3>
-                <p>瞬時に反応する滑らかな操作感</p>
+                <h3>{t('landing.features.performance.title')}</h3>
+                <p>{t('landing.features.performance.description')}</p>
               </div>
             </div>
 
@@ -96,14 +101,14 @@ export const LandingPage: React.FC = () => {
                 className="cta-button primary"
                 onClick={handleLoginClick}
               >
-                <span>ログイン</span>
+                <span>{t('landing.loginButton')}</span>
                 <ArrowRight className="arrow-icon" />
               </button>
               <button 
                 className="cta-button secondary"
                 onClick={handleRegisterClick}
               >
-                <span>新規登録</span>
+                <span>{t('landing.registerButton')}</span>
               </button>
             </div>
           </div>
@@ -111,7 +116,7 @@ export const LandingPage: React.FC = () => {
 
         {/* フッター */}
         <footer className="landing-footer">
-          <p>&copy; 2025 MindFlow. All rights reserved.</p>
+          <p>{t('landing.footer')}</p>
         </footer>
       </div>
 
@@ -200,6 +205,12 @@ export const LandingPage: React.FC = () => {
           padding: 2rem;
           display: flex;
           justify-content: center;
+        }
+
+        .language-switcher {
+          position: absolute;
+          top: 2rem;
+          right: 2rem;
         }
 
         .logo-container {
@@ -495,6 +506,11 @@ export const LandingPage: React.FC = () => {
 
           .premium-badge {
             order: -1;
+          }
+
+          .language-switcher {
+            position: static;
+            margin-top: 1rem;
           }
         }
       `}</style>
