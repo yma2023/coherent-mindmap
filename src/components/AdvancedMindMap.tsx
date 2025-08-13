@@ -77,13 +77,61 @@ export const AdvancedMindMap: React.FC = () => {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [nextNodeId, setNextNodeId] = useState(2);
 
+  // 子ノードの位置を自動計算（バランス配置）
+  const calculateBalancedChildPositions = useCallback((parentNode: Node): { x: number; y: number }[] => {
+    const childCount = parentNode.children.length;
+    if (childCount === 0) return [];
+
+    const baseX = parentNode.x + NODE_SPACING_X;
+    const positions: { x: number; y: number }[] = [];
+
+    if (childCount === 1) {
+      // 1つの場合：親ノードと同じ高さ
+      positions.push({ x: baseX, y: parentNode.y });
+    } else {
+      // 複数の場合：上下にバランス良く配置
+      const totalHeight = (childCount - 1) * NODE_SPACING_Y;
+      const startY = parentNode.y - totalHeight / 2;
+
+      for (let i = 0; i < childCount; i++) {
+        positions.push({
+          x: baseX,
+          y: startY + i * NODE_SPACING_Y
+        });
+      }
+    }
+
+    return positions;
+  }, []);
+
+  // 子ノードの位置を再計算して更新
+  const rebalanceChildNodes = useCallback((parentId: string) => {
+    const parentNode = nodes.find(n => n.id === parentId);
+    if (!parentNode || parentNode.children.length === 0) return;
+
+    const newPositions = calculateBalancedChildPositions(parentNode);
+    
+    setNodes(prev => prev.map(node => {
+      const childIndex = parentNode.children.indexOf(node.id);
+      if (childIndex !== -1 && newPositions[childIndex]) {
+        return {
+          ...node,
+          x: newPositions[childIndex].x,
+          y: newPositions[childIndex].y
+        };
+      }
+      return node;
+    }));
+  }, [nodes, calculateBalancedChildPositions]);
+
   // 子ノードの位置を計算（右方向）
   const calculateChildPosition = useCallback((parentNode: Node): { x: number; y: number } => {
-    return {
+    const positions = calculateBalancedChildPositions(parentNode);
+    return positions[parentNode.children.length] || {
       x: parentNode.x + NODE_SPACING_X,
       y: parentNode.y,
     };
-  }, []);
+  }, [calculateBalancedChildPositions]);
 
   // 子ノードの兄弟位置を計算（下方向）
   const calculateSiblingPosition = useCallback((parentNode: Node, siblingIndex: number): { x: number; y: number } => {
@@ -135,8 +183,11 @@ export const AdvancedMindMap: React.FC = () => {
       return [...updated, newNode];
     });
 
+    // 子ノードの位置を再バランス
+    setTimeout(() => rebalanceChildNodes(parentId), 0);
+
     setNextNodeId(prev => prev + 1);
-  }, [nodes, nextNodeId, calculateChildPosition]);
+  }, [nodes, nextNodeId, calculateChildPosition, rebalanceChildNodes]);
 
   // 兄弟ノード作成（親の子として追加）
   const createSiblingNode = useCallback((nodeId: string) => {
@@ -181,14 +232,20 @@ export const AdvancedMindMap: React.FC = () => {
       return [...updated, newNode];
     });
 
+    // 子ノードの位置を再バランス
+    setTimeout(() => rebalanceChildNodes(node.parentId!), 0);
+
     setNextNodeId(prev => prev + 1);
-  }, [nodes, nextNodeId, calculateSiblingPosition]);
+  }, [nodes, nextNodeId, calculateSiblingPosition, rebalanceChildNodes]);
 
   // ノード削除
   const deleteNode = useCallback((nodeId: string) => {
+    const nodeToDelete = nodes.find(n => n.id === nodeId);
+    const parentId = nodeToDelete?.parentId;
+
     setNodes(prev => {
-      const nodeToDelete = prev.find(n => n.id === nodeId);
-      if (!nodeToDelete) return prev;
+      const node = prev.find(n => n.id === nodeId);
+      if (!node) return prev;
 
       // 親から削除
       const updated = prev.map(node => {
@@ -216,7 +273,12 @@ export const AdvancedMindMap: React.FC = () => {
 
       return updated.filter(node => !nodesToRemove.has(node.id));
     });
-  }, []);
+
+    // 親ノードの子ノードを再バランス
+    if (parentId) {
+      setTimeout(() => rebalanceChildNodes(parentId), 0);
+    }
+  }, [nodes, rebalanceChildNodes]);
 
   // ノード内容更新
   const updateNodeContent = useCallback((nodeId: string, content: string) => {
@@ -241,7 +303,7 @@ export const AdvancedMindMap: React.FC = () => {
   // 編集キャンセル
   const cancelEditing = useCallback((nodeId: string) => {
     const node = nodes.find(n => n.id === nodeId);
-    if (node && node.content === '') {
+    if (node && (node.content === '' || node.content === 'New Node')) {
       // 内容が空の場合はノードを削除
       deleteNode(nodeId);
     } else {
@@ -305,39 +367,52 @@ export const AdvancedMindMap: React.FC = () => {
     
     visibleNodes.forEach(node => {
       if (node.children.length > 0 && !node.isCollapsed) {
-        // 最初の子ノードへの直線接続
-        const firstChild = visibleNodes.find(n => n.id === node.children[0]);
-        if (firstChild) {
-          newConnections.push({
-            id: `${node.id}-${firstChild.id}`,
-            fromNodeId: node.id,
-            toNodeId: firstChild.id,
-            fromX: node.x + 50,
-            fromY: node.y,
-            toX: firstChild.x - 10,
-            toY: firstChild.y,
-            type: 'child',
-          });
-        }
+        // 展開ボタンの位置
+        const expandButtonX = node.x + 100;
+        const expandButtonY = node.y;
 
-        // 他の子ノードへのベジエ曲線接続
-        for (let i = 1; i < node.children.length; i++) {
+        // 親ノードから展開ボタンへの直線
+        newConnections.push({
+          id: `${node.id}-expand`,
+          fromNodeId: node.id,
+          toNodeId: 'expand',
+          fromX: node.x + 50,
+          fromY: node.y,
+          toX: expandButtonX,
+          toY: expandButtonY,
+          type: 'child',
+        });
+
+        // 展開ボタンから各子ノードへの曲線接続
+        for (let i = 0; i < node.children.length; i++) {
           const childId = node.children[i];
           const child = visibleNodes.find(n => n.id === childId);
           if (child) {
-            const firstChild = visibleNodes.find(n => n.id === node.children[0]);
-            if (firstChild) {
+            if (i === 0 && node.children.length === 1) {
+              // 子ノードが1つの場合は直線
               newConnections.push({
-                id: `${node.id}-${child.id}`,
-                fromNodeId: node.id,
+                id: `expand-${child.id}`,
+                fromNodeId: 'expand',
                 toNodeId: child.id,
-                fromX: firstChild.x,
-                fromY: firstChild.y,
+                fromX: expandButtonX,
+                fromY: expandButtonY,
+                toX: child.x - 10,
+                toY: child.y,
+                type: 'child',
+              });
+            } else {
+              // 複数の子ノードの場合は曲線
+              newConnections.push({
+                id: `expand-${child.id}`,
+                fromNodeId: 'expand',
+                toNodeId: child.id,
+                fromX: expandButtonX,
+                fromY: expandButtonY,
                 toX: child.x - 10,
                 toY: child.y,
                 type: 'sibling',
-                controlX: firstChild.x,
-                controlY: firstChild.y + (child.y - firstChild.y) / 2,
+                controlX: expandButtonX + 50,
+                controlY: expandButtonY + (child.y - expandButtonY) / 2,
               });
             }
           }
@@ -492,16 +567,27 @@ export const AdvancedMindMap: React.FC = () => {
           }}
         >
           {connections.map(connection => (
-            <line
-              key={connection.id}
-              x1={connection.fromX}
-              y1={connection.fromY}
-              x2={connection.toX}
-              y2={connection.toY}
-              stroke="#888"
-              strokeWidth="2"
-              className="transition-all duration-200"
-            />
+            connection.type === 'sibling' && connection.controlX && connection.controlY ? (
+              <path
+                key={connection.id}
+                d={`M ${connection.fromX} ${connection.fromY} Q ${connection.controlX} ${connection.controlY} ${connection.toX} ${connection.toY}`}
+                stroke="#888"
+                strokeWidth="2"
+                fill="none"
+                className="transition-all duration-200"
+              />
+            ) : (
+              <line
+                key={connection.id}
+                x1={connection.fromX}
+                y1={connection.fromY}
+                x2={connection.toX}
+                y2={connection.toY}
+                stroke="#888"
+                strokeWidth="2"
+                className="transition-all duration-200"
+              />
+            )
           ))}
         </svg>
 
@@ -540,7 +626,7 @@ export const AdvancedMindMap: React.FC = () => {
                 {node.isEditing ? (
                   <input
                     type="text"
-                    defaultValue={node.content}
+                    defaultValue={node.content === 'New Node' ? '' : node.content}
                     className="bg-transparent border-b-2 border-blue-500 outline-none text-lg font-medium min-w-[100px]"
                     autoFocus
                     onBlur={(e) => updateNodeContent(node.id, e.target.value)}
@@ -554,7 +640,7 @@ export const AdvancedMindMap: React.FC = () => {
                   />
                 ) : (
                   <span className="text-lg font-medium cursor-pointer hover:text-blue-600 transition-colors">
-                    {node.content || 'Empty Node'}
+                    {node.content}
                   </span>
                 )}
 
@@ -621,7 +707,8 @@ export const AdvancedMindMap: React.FC = () => {
           <p>• 青い+ボタン: 子ノード追加（右方向）</p>
           <p>• 緑の+ボタン: 兄弟ノード追加（下方向）</p>
           <p>• 丸ボタン: 兄弟ノードの表示・非表示</p>
-          <p>• ESCキー: 編集キャンセル</p>
+          <p>• ESCキー: 編集キャンセル（空の場合は削除）</p>
+          <p>• 子ノードは自動的にバランス良く配置されます</p>
         </div>
       </div>
 
