@@ -342,6 +342,15 @@ export const AdvancedMindMap: React.FC = () => {
       return;
     }
 
+    // 更新前のノード情報を取得
+    const oldNode = nodes.find(n => n.id === nodeId);
+    if (!oldNode) return;
+
+    const isRoot = !oldNode.parentId;
+    const oldWidth = oldNode.width || calculateNodeWidth(oldNode.content, isRoot);
+    const newWidth = calculateNodeWidth(trimmedContent, isRoot);
+    const widthDifference = newWidth - oldWidth;
+
     setNodes(prev => prev.map(node => {
       if (node.id === nodeId) {
         const isRoot = !node.parentId;
@@ -354,7 +363,43 @@ export const AdvancedMindMap: React.FC = () => {
       }
       return node;
     }));
+
+    // 幅が変化した場合、子ノードの位置を調整
+    if (Math.abs(widthDifference) > 1) {
+      setTimeout(() => {
+        adjustChildNodesPosition(nodeId, widthDifference);
+      }, 0);
+    }
   }, [deleteNode, calculateNodeWidth]);
+
+  // 子ノードの位置を調整する関数
+  const adjustChildNodesPosition = useCallback((parentNodeId: string, widthDifference: number) => {
+    const parentNode = nodes.find(n => n.id === parentNodeId);
+    if (!parentNode || parentNode.children.length === 0) return;
+
+    // 子ノードとその子孫ノードすべての位置を調整
+    const adjustDescendants = (nodeId: string, deltaX: number) => {
+      const node = nodes.find(n => n.id === nodeId);
+      if (!node) return;
+
+      // 現在のノードの位置を調整
+      setNodes(prev => prev.map(n => 
+        n.id === nodeId 
+          ? { ...n, x: n.x + deltaX }
+          : n
+      ));
+
+      // 子ノードも再帰的に調整
+      node.children.forEach(childId => {
+        adjustDescendants(childId, deltaX);
+      });
+    };
+
+    // 全ての子ノードとその子孫を右方向（または左方向）に移動
+    parentNode.children.forEach(childId => {
+      adjustDescendants(childId, widthDifference);
+    });
+  }, [nodes]);
 
   // ノード編集開始
   const startNodeEditing = useCallback((nodeId: string) => {
