@@ -453,57 +453,64 @@ export const AdvancedMindMap: React.FC = () => {
         const expandButtonPos = getExpandButtonPosition(node);
         if (!expandButtonPos) return;
 
-        const nodeWidth = node.width || calculateNodeWidth(node.content);
+        const nodeWidth = node.width || calculateNodeWidth(node.content, !node.parentId);
+        const isRoot = !node.parentId;
+        
+        // 親ノードの右端中央の座標
+        const parentRightCenterX = node.x + nodeWidth;
+        const parentRightCenterY = node.y;
         const expandButtonX = expandButtonPos.x;
         const expandButtonY = expandButtonPos.y;
 
-        // 親ノードから展開ボタンへの線
+        // 親ノードの右端中央から展開ボタンへの直線
         newConnections.push({
           id: `${node.id}-expand`,
           fromNodeId: node.id,
           toNodeId: 'expand',
-          fromX: node.x + nodeWidth,
-          fromY: node.y,
+          fromX: parentRightCenterX,
+          fromY: parentRightCenterY,
           toX: expandButtonX - EXPAND_BUTTON_SIZE / 2,
           toY: expandButtonY,
           type: 'child',
         });
 
-        // 展開されている場合のみ子ノードへの接続線を描画
-        if (!node.isCollapsed) {
-          for (let i = 0; i < node.children.length; i++) {
-            const childId = node.children[i];
-            const child = visibleNodes.find(n => n.id === childId);
-            if (child) {
-              if (node.children.length === 1) {
-                // 子ノードが1つの場合は直線
-                newConnections.push({
-                  id: `expand-${child.id}`,
-                  fromNodeId: 'expand',
-                  toNodeId: child.id,
-                  fromX: expandButtonX + EXPAND_BUTTON_SIZE / 2,
-                  fromY: expandButtonY,
-                  toX: child.x,
-                  toY: child.y,
-                  type: 'child',
-                });
-              } else {
-                // 複数の子ノードの場合は曲線
-                const controlX = expandButtonX + 40;
-                const controlY = expandButtonY + (child.y - expandButtonY) * 0.2;
-                newConnections.push({
-                  id: `expand-${child.id}`,
-                  fromNodeId: 'expand',
-                  toNodeId: child.id,
-                  fromX: expandButtonX + EXPAND_BUTTON_SIZE / 2,
-                  fromY: expandButtonY,
-                  toX: child.x,
-                  toY: child.y,
-                  type: 'sibling',
-                  controlX: controlX,
-                  controlY: controlY,
-                });
-              }
+        // 展開ボタンから各子ノードへの接続線
+        for (let i = 0; i < node.children.length; i++) {
+          const childId = node.children[i];
+          const child = visibleNodes.find(n => n.id === childId);
+          if (child) {
+            // 子ノードの左端中央の座標
+            const childLeftCenterX = child.x;
+            const childLeftCenterY = child.y;
+            
+            if (node.children.length === 1) {
+              // 子ノードが1つの場合は直線
+              newConnections.push({
+                id: `expand-${child.id}`,
+                fromNodeId: 'expand',
+                toNodeId: child.id,
+                fromX: expandButtonX + EXPAND_BUTTON_SIZE / 2,
+                fromY: expandButtonY,
+                toX: childLeftCenterX,
+                toY: childLeftCenterY,
+                type: 'child',
+              });
+            } else {
+              // 複数の子ノードの場合は曲線
+              const controlX = expandButtonX + 40;
+              const controlY = expandButtonY + (child.y - expandButtonY) * 0.2;
+              newConnections.push({
+                id: `expand-${child.id}`,
+                fromNodeId: 'expand',
+                toNodeId: child.id,
+                fromX: expandButtonX + EXPAND_BUTTON_SIZE / 2,
+                fromY: expandButtonY,
+                toX: childLeftCenterX,
+                toY: childLeftCenterY,
+                type: 'sibling',
+                controlX: controlX,
+                controlY: controlY,
+              });
             }
           }
         }
