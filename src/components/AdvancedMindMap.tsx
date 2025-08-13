@@ -442,118 +442,6 @@ export const AdvancedMindMap: React.FC = () => {
 
   // ホイールイベント（ズーム）
   const handleWheel = useCallback((e: React.WheelEvent) => {
-        const child = visibleNodes.find(n => n.id === childId);
-        if (child) {
-          newConnections.push({
-            id: `${node.id}-${child.id}`,
-            fromNodeId: node.id,
-            toNodeId: child.id,
-            fromX: node.x + 50, // テキストの右端
-            fromY: node.y,
-            toX: child.x - 10, // テキストの左端
-            toY: child.y,
-          });
-        }
-      });
-
-      // 兄弟ノードへの接続（折りたたまれていない場合のみ）
-      if (!node.isCollapsed) {
-        node.siblings.forEach(siblingId => {
-          const sibling = visibleNodes.find(n => n.id === siblingId);
-          if (sibling) {
-            newConnections.push({
-              id: `${node.id}-${sibling.id}`,
-              fromNodeId: node.id,
-              toNodeId: sibling.id,
-              fromX: node.x,
-              fromY: node.y + 10, // テキストの下
-              toX: sibling.x,
-              toY: sibling.y - 10, // テキストの上
-            });
-          }
-        });
-      }
-    });
-    
-    return newConnections;
-  }, [nodes, getVisibleNodes]);
-
-  // 接続線を更新
-  useEffect(() => {
-    setConnections(calculateConnections());
-  }, [calculateConnections]);
-
-  // マウスイベント処理
-  const handleMouseDown = useCallback((e: React.MouseEvent, nodeId?: string) => {
-    e.preventDefault();
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return;
-
-    const clientX = e.clientX - rect.left;
-    const clientY = e.clientY - rect.top;
-
-    if (nodeId) {
-      const node = nodes.find(n => n.id === nodeId);
-      if (node) {
-        setDragState({
-          isDragging: true,
-          dragType: 'node',
-          nodeId,
-          startX: clientX,
-          startY: clientY,
-          initialX: node.x,
-          initialY: node.y,
-        });
-        selectNode(nodeId);
-      }
-    } else {
-      setDragState({
-        isDragging: true,
-        dragType: 'canvas',
-        startX: clientX,
-        startY: clientY,
-        initialX: viewState.offsetX,
-        initialY: viewState.offsetY,
-      });
-    }
-  }, [nodes, viewState, selectNode]);
-
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!dragState?.isDragging) return;
-
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return;
-
-    const clientX = e.clientX - rect.left;
-    const clientY = e.clientY - rect.top;
-    const deltaX = (clientX - dragState.startX) / viewState.scale;
-    const deltaY = (clientY - dragState.startY) / viewState.scale;
-
-    if (dragState.dragType === 'node' && dragState.nodeId) {
-      setNodes(prev => prev.map(node => 
-        node.id === dragState.nodeId
-          ? {
-              ...node,
-              x: dragState.initialX + deltaX,
-              y: dragState.initialY + deltaY,
-            }
-          : node
-      ));
-    } else if (dragState.dragType === 'canvas') {
-      setViewState(prev => ({
-        ...prev,
-        offsetX: dragState.initialX + deltaX,
-        offsetY: dragState.initialY + deltaY,
-      }));
-    }
-  }, [dragState, viewState.scale]);
-
-  const handleMouseUp = useCallback(() => {
-    setDragState(null);
-  }, []);
-
-  // ホイールイベント（ズーム）
-  const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
     setViewState(prev => ({
@@ -704,12 +592,12 @@ export const AdvancedMindMap: React.FC = () => {
                 </button>
 
                 {/* 兄弟ノード表示・非表示ボタン */}
-                {node.siblings.length > 0 && (
+                {shouldShowCollapseButton(node) && (
                   <button
                     className="absolute -bottom-4 left-1/2 transform -translate-x-1/2 w-4 h-4 bg-gray-600 text-white rounded-full flex items-center justify-center hover:bg-gray-700 z-10"
                     onClick={(e) => {
                       e.stopPropagation();
-                      toggleSiblingsVisibility(node.id);
+                      toggleChildrenVisibility(node.id);
                     }}
                   >
                     {node.isCollapsed ? (
