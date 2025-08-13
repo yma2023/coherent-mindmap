@@ -80,11 +80,16 @@ export const AdvancedMindMap: React.FC = () => {
 
   // ノードの幅を計算する関数
   const calculateNodeWidth = useCallback((content: string, isRoot = false) => {
-    // 文字数に基づいて幅を計算（最小80px、最大300px）
-    const baseWidth = isRoot ? 120 : 80;
+    // 文字数に基づいて幅を計算（文字列の実際の長さに合わせる）
     const charWidth = isRoot ? 16 : 12;
-    const maxWidth = isRoot ? 400 : 300;
-    return Math.min(Math.max(baseWidth, content.length * charWidth), maxWidth);
+    const padding = 16; // 左右のパディング（8px × 2）
+    const minWidth = isRoot ? 60 : 40; // 最小幅（空文字対応）
+    
+    if (!content || content.trim() === '') {
+      return minWidth;
+    }
+    
+    return Math.max(minWidth, content.length * charWidth + padding);
   }, []);
 
   // 子ノードの位置を自動計算（バランス配置）
@@ -731,6 +736,9 @@ export const AdvancedMindMap: React.FC = () => {
                       ? 'text-2xl font-bold' 
                       : 'text-lg font-medium'
                   }`}
+                  style={{
+                    width: node.width || calculateNodeWidth(node.content, !node.parentId),
+                  }}
                   onClick={(e) => {
                     e.stopPropagation();
                     if (!dragState?.isDragging) {
@@ -748,7 +756,9 @@ export const AdvancedMindMap: React.FC = () => {
                     <input
                       type="text"
                       defaultValue={node.content === 'New Node' ? '' : node.content}
-                      className="bg-transparent border-b-2 border-blue-500 outline-none text-xl font-medium min-w-[100px] px-1"
+                      className={`bg-transparent border-b-2 border-blue-500 outline-none px-1 w-full ${
+                        !node.parentId ? 'text-2xl font-bold' : 'text-lg font-medium'
+                      }`}
                       autoFocus
                       onBlur={(e) => updateNodeContent(node.id, e.target.value)}
                       onKeyDown={(e) => {
@@ -760,7 +770,9 @@ export const AdvancedMindMap: React.FC = () => {
                       }}
                     />
                   ) : (
-                    <span className="text-xl font-medium px-1 py-1 rounded transition-colors">
+                    <span className={`px-1 py-1 rounded transition-colors block ${
+                      !node.parentId ? 'text-2xl font-bold' : 'text-lg font-medium'
+                    }`}>
                       {node.content}
                     </span>
                   )}
