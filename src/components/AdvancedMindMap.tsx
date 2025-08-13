@@ -79,11 +79,12 @@ export const AdvancedMindMap: React.FC = () => {
   const [nextNodeId, setNextNodeId] = useState(2);
 
   // ノードの幅を計算する関数
-  const calculateNodeWidth = useCallback((content: string) => {
+  const calculateNodeWidth = useCallback((content: string, isRoot = false) => {
     // 文字数に基づいて幅を計算（最小80px、最大300px）
-    const baseWidth = 80;
-    const charWidth = 12;
-    return Math.min(Math.max(baseWidth, content.length * charWidth), 300);
+    const baseWidth = isRoot ? 120 : 80;
+    const charWidth = isRoot ? 16 : 12;
+    const maxWidth = isRoot ? 400 : 300;
+    return Math.min(Math.max(baseWidth, content.length * charWidth), maxWidth);
   }, []);
 
   // 子ノードの位置を自動計算（バランス配置）
@@ -99,13 +100,14 @@ export const AdvancedMindMap: React.FC = () => {
       positions.push({ x: baseX, y: parentNode.y });
     } else {
       // 複数の場合：上下にバランス良く配置
-      const totalHeight = (childCount - 1) * NODE_SPACING_Y;
+      const spacing = Math.max(60, NODE_SPACING_Y - (childCount - 2) * 10); // 動的間隔調整
+      const totalHeight = (childCount - 1) * spacing;
       const startY = parentNode.y - totalHeight / 2;
 
       for (let i = 0; i < childCount; i++) {
         positions.push({
           x: baseX,
-          y: startY + i * NODE_SPACING_Y
+          y: startY + i * spacing
         });
       }
     }
@@ -171,7 +173,7 @@ export const AdvancedMindMap: React.FC = () => {
       isSelected: true,
       isCollapsed: false,
       level: parentNode.level + 1,
-      width: calculateNodeWidth(''),
+      width: calculateNodeWidth('', false),
     };
 
     setNodes(prev => {
@@ -293,7 +295,8 @@ export const AdvancedMindMap: React.FC = () => {
 
   // ノード内容更新
   const updateNodeContent = useCallback((nodeId: string, content: string) => {
-    if (content.trim() === '') {
+    const trimmedContent = content.trim();
+    if (trimmedContent === '') {
       // 空の場合はノードを削除
       deleteNode(nodeId);
       return;
@@ -301,21 +304,31 @@ export const AdvancedMindMap: React.FC = () => {
 
     setNodes(prev => prev.map(node => {
       if (node.id === nodeId) {
+        const isRoot = !node.parentId;
         return {
           ...node,
-          content: content.trim(),
+          content: trimmedContent,
           isEditing: false,
-          width: calculateNodeWidth(content.trim()),
+          width: calculateNodeWidth(trimmedContent, isRoot),
         };
       }
       return node;
     }));
   }, [deleteNode, calculateNodeWidth]);
 
+  // ノード編集開始
+  const startNodeEditing = useCallback((nodeId: string) => {
+    setNodes(prev => prev.map(node => ({
+      ...node,
+      isEditing: node.id === nodeId,
+      isSelected: node.id === nodeId,
+    })));
+  }, []);
+
   // 編集キャンセル
   const cancelEditing = useCallback((nodeId: string) => {
     const node = nodes.find(n => n.id === nodeId);
-    if (node && (node.content === '' || node.content === 'New Node')) {
+    if (node && node.content.trim() === '') {
       // 内容が空の場合はノードを削除
       deleteNode(nodeId);
     } else {
@@ -376,10 +389,11 @@ export const AdvancedMindMap: React.FC = () => {
   const getExpandButtonPosition = useCallback((node: Node) => {
     if (node.children.length === 0) return null;
     
-    const nodeWidth = node.width || calculateNodeWidth(node.content);
+    const isRoot = !node.parentId;
+    const nodeWidth = node.width || calculateNodeWidth(node.content, isRoot);
     
     return {
-      x: node.x + nodeWidth + 30, // ノードの右側に30px離して配置
+      x: node.x + nodeWidth + 20, // ノードの右側に20px離して配置
       y: node.y,
     };
   }, [calculateNodeWidth]);
@@ -435,8 +449,8 @@ export const AdvancedMindMap: React.FC = () => {
                 });
               } else {
                 // 複数の子ノードの場合は曲線
-                const controlX = expandButtonX + 60;
-                const controlY = expandButtonY + (child.y - expandButtonY) * 0.3;
+                const controlX = expandButtonX + 40;
+                const controlY = expandButtonY + (child.y - expandButtonY) * 0.2;
                 newConnections.push({
                   id: `expand-${child.id}`,
                   fromNodeId: 'expand',
@@ -602,7 +616,7 @@ export const AdvancedMindMap: React.FC = () => {
                 x2={connection.toX}
                 y2={connection.toY}
                 stroke="#4F46E5"
-                strokeWidth="2.5"
+                strokeWidth="3"
                 className="transition-all duration-300"
               />
             )
@@ -639,6 +653,16 @@ export const AdvancedMindMap: React.FC = () => {
                   e.stopPropagation();
                   if (!dragState?.isDragging) {
                     selectNode(node.id);
+                  }
+                className={`px-1 py-1 rounded transition-colors cursor-pointer ${
+                  !node.parentId 
+                    ? 'text-2xl font-bold' 
+                    : 'text-lg font-medium'
+                }`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!dragState?.isDragging) {
+                    startNodeEditing(node.id);
                   }
                 }}
               >
@@ -753,12 +777,13 @@ export const AdvancedMindMap: React.FC = () => {
       <div className="absolute top-4 left-4 bg-white p-4 rounded-lg shadow-md">
         <h3 className="font-semibold text-gray-800 mb-2">操作方法</h3>
         <div className="text-sm text-gray-600 space-y-1">
-          <p>• ノードをクリックして選択</p>
+          <p>• ノードをクリックして編集</p>
           <p>• ホバーで青い+ボタン: 子ノード追加（右方向）</p>
           <p>• ホバーで緑の+ボタン: 兄弟ノード追加（下方向）</p>
           <p>• ⚪︎ボタン: 子ノードの表示・非表示</p>
           <p>• 選択時に削除ボタン表示</p>
-          <p>• ESCキー: 編集キャンセル（空の場合は削除）</p>
+          <p>• ESCキー: 編集キャンセル</p>
+          <p>• 空ノードは自動削除</p>
         </div>
       </div>
 
