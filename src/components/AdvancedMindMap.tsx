@@ -654,6 +654,11 @@ export const AdvancedMindMap: React.FC = () => {
           style={{
             transform: `scale(${viewState.scale}) translate(${viewState.offsetX}px, ${viewState.offsetY}px)`,
             transformOrigin: '0 0',
+            zIndex: 1,
+          }}
+          style={{
+            transform: `scale(${viewState.scale}) translate(${viewState.offsetX}px, ${viewState.offsetY}px)`,
+            transformOrigin: '0 0',
           }}
         >
           {connections.map(connection => (
@@ -664,6 +669,8 @@ export const AdvancedMindMap: React.FC = () => {
                 stroke="#4F46E5"
                 strokeWidth="2.5"
                 fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
                 className="transition-all duration-300"
               />
             ) : (
@@ -675,6 +682,7 @@ export const AdvancedMindMap: React.FC = () => {
                 y2={connection.toY}
                 stroke="#4F46E5"
                 strokeWidth="3"
+                strokeLinecap="round"
                 className="transition-all duration-300"
               />
             )
@@ -806,16 +814,15 @@ export const AdvancedMindMap: React.FC = () => {
                 <div
                   className="absolute z-10"
                   style={{
-                    left: getExpandButtonPosition(node)?.x || 0,
-                    top: getExpandButtonPosition(node)?.y || 0,
-                    transform: 'translate(-50%, -50%)',
+                    left: (getExpandButtonPosition(node)?.x || 0) - 10,
+                    top: (getExpandButtonPosition(node)?.y || 0) - 10,
                   }}
                 >
                   <button
-                    className={`w-5 h-5 rounded-full flex items-center justify-center transition-all duration-300 shadow-md ${
+                    className={`w-5 h-5 rounded-full flex items-center justify-center transition-all duration-300 shadow-md border-2 ${
                       node.isCollapsed
-                        ? 'bg-blue-500 text-white hover:bg-blue-600'
-                        : 'bg-white border-2 border-blue-500 text-blue-500 hover:bg-blue-50'
+                        ? 'bg-blue-500 border-blue-500 text-white hover:bg-blue-600'
+                        : 'bg-white border-blue-500 text-blue-500 hover:bg-blue-50'
                     }`}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -823,9 +830,9 @@ export const AdvancedMindMap: React.FC = () => {
                     }}
                   >
                     {node.isCollapsed ? (
-                      <div className="w-2 h-2 bg-white rounded-full" />
+                      <div className="w-1.5 h-1.5 bg-white rounded-full" />
                     ) : (
-                      <div className="w-2 h-2 border border-blue-500 rounded-full" />
+                      <div className="w-1.5 h-1.5 border border-blue-500 rounded-full" />
                     )}
                   </button>
                 </div>
