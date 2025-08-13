@@ -495,7 +495,7 @@ export const LandingPage: React.FC = () => {
                 <div className="w-20 h-20 bg-gradient-to-br from-green-500 to-emerald-500 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg">
                   <Zap className="w-10 h-10 text-white" />
                 </div>
-                <div className="text-4xl font-bold text-slate-800 mb-2">< 50ms</div>
+                <div className="text-4xl font-bold text-slate-800 mb-2">{"< 50ms"}</div>
                 <div className="text-lg text-slate-600 font-medium mb-4">応答時間</div>
                 <p className="text-slate-600 leading-relaxed">
                   どんな操作も50ミリ秒以内で反応。ストレスフリーな編集体験を提供します。
