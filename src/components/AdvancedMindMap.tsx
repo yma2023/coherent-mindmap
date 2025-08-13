@@ -197,7 +197,7 @@ export const AdvancedMindMap: React.FC = () => {
     setTimeout(() => rebalanceChildNodes(parentId), 0);
 
     setNextNodeId(prev => prev + 1);
-  }, [nodes, nextNodeId, calculateChildPosition, rebalanceChildNodes]);
+  }, [nodes, nextNodeId, calculateChildPosition, rebalanceChildNodes, calculateNodeWidth]);
 
   // 兄弟ノード作成（親の子として追加）
   const createSiblingNode = useCallback((nodeId: string) => {
@@ -247,7 +247,7 @@ export const AdvancedMindMap: React.FC = () => {
     setTimeout(() => rebalanceChildNodes(node.parentId!), 0);
 
     setNextNodeId(prev => prev + 1);
-  }, [nodes, nextNodeId, calculateSiblingPosition, rebalanceChildNodes]);
+  }, [nodes, nextNodeId, calculateSiblingPosition, rebalanceChildNodes, calculateNodeWidth]);
 
   // ノード削除
   const deleteNode = useCallback((nodeId: string) => {
@@ -372,6 +372,23 @@ export const AdvancedMindMap: React.FC = () => {
     return visibleNodes;
   }, [nodes]);
 
+  // 折りたたみボタンの位置を計算
+  const getExpandButtonPosition = useCallback((node: Node) => {
+    if (node.children.length === 0) return null;
+    
+    const nodeWidth = node.width || calculateNodeWidth(node.content);
+    
+    return {
+      x: node.x + nodeWidth + 30, // ノードの右側に30px離して配置
+      y: node.y,
+    };
+  }, [calculateNodeWidth]);
+
+  // 展開ボタンを表示すべきかチェック
+  const shouldShowExpandButton = useCallback((node: Node) => {
+    return node.children.length > 0;
+  }, []);
+
   // 接続線を計算
   const calculateConnections = useCallback((): Connection[] => {
     const visibleNodes = getVisibleNodes();
@@ -441,23 +458,6 @@ export const AdvancedMindMap: React.FC = () => {
     
     return newConnections;
   }, [nodes, getVisibleNodes, getExpandButtonPosition, calculateNodeWidth]);
-
-  // 折りたたみボタンの位置を計算
-  const getExpandButtonPosition = useCallback((node: Node) => {
-    if (node.children.length === 0) return null;
-    
-    const nodeWidth = node.width || calculateNodeWidth(node.content);
-    
-    return {
-      x: node.x + nodeWidth + 30, // ノードの右側に30px離して配置
-      y: node.y,
-    };
-  }, [calculateNodeWidth]);
-
-  // 展開ボタンを表示すべきかチェック
-  const shouldShowExpandButton = useCallback((node: Node) => {
-    return node.children.length > 0;
-  }, []);
 
   // 接続線を更新
   useEffect(() => {
@@ -664,7 +664,6 @@ export const AdvancedMindMap: React.FC = () => {
                     }}
                   />
                 ) : (
-                  <span className="text-lg font-medium cursor-pointer hover:text-blue-600 transition-colors">
                   <span className="text-xl font-medium px-1 py-1 rounded transition-colors">
                     {node.content}
                   </span>
