@@ -456,9 +456,11 @@ export const AdvancedMindMap: React.FC = () => {
         const nodeWidth = node.width || calculateNodeWidth(node.content, !node.parentId);
         const isRoot = !node.parentId;
         
-        // 親ノードの右端中央の座標
-        const parentRightCenterX = node.x + nodeWidth;
-        const parentRightCenterY = node.y;
+        // 親ノード（矩形）の右端中央の座標を正確に計算
+        const NODE_HEIGHT = 40; // ノードの高さ
+        const parentRightCenterX = node.x + nodeWidth; // 右端のX座標
+        const parentRightCenterY = node.y; // 中央のY座標（ノードの中心）
+        
         const expandButtonX = expandButtonPos.x;
         const expandButtonY = expandButtonPos.y;
 
@@ -479,9 +481,9 @@ export const AdvancedMindMap: React.FC = () => {
           const childId = node.children[i];
           const child = visibleNodes.find(n => n.id === childId);
           if (child) {
-            // 子ノードの左端中央の座標
-            const childLeftCenterX = child.x;
-            const childLeftCenterY = child.y;
+            // 子ノード（矩形）の左端中央の座標を正確に計算
+            const childLeftCenterX = child.x; // 左端のX座標
+            const childLeftCenterY = child.y; // 中央のY座標（ノードの中心）
             
             if (node.children.length === 1) {
               // 子ノードが1つの場合は直線
