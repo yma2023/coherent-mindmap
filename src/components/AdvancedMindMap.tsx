@@ -665,7 +665,6 @@ export const AdvancedMindMap: React.FC = () => {
                 style={{
                   left: node.x,
                   top: node.y,
-                  className={`w-5 h-5 rounded-full flex items-center justify-center transition-all duration-300 shadow-md ${
                 }}
                 onMouseDown={(e) => {
                   e.stopPropagation();
@@ -690,7 +689,7 @@ export const AdvancedMindMap: React.FC = () => {
                       startNodeEditing(node.id);
                     }
                   }}
-                    <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                >
                   {/* 選択時の枠線 */}
                   {node.isSelected && (
                     <div className="absolute -inset-2 border-2 border-blue-500 rounded-lg bg-blue-50/20 pointer-events-none" />
@@ -713,7 +712,7 @@ export const AdvancedMindMap: React.FC = () => {
                       }}
                     />
                   ) : (
-                    <div className="w-1.5 h-1.5 border border-blue-500 rounded-full" />
+                    <span>
                       {node.content}
                     </span>
                   )}
