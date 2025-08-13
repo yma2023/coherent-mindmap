@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Plus, X, Move } from 'lucide-react';
+import { Plus, X, ChevronDown, ChevronRight } from 'lucide-react';
 import { useTranslation } from '../hooks/useTranslation';
 import { LanguageSwitcher } from './LanguageSwitcher';
 
@@ -7,13 +7,14 @@ interface Node {
   id: string;
   x: number;
   y: number;
-  width: number;
-  height: number;
   content: string;
   parentId?: string;
   children: string[];
+  siblings: string[];
   isEditing: boolean;
   isSelected: boolean;
+  isCollapsed: boolean;
+  level: number;
 }
 
 interface Connection {
@@ -32,9 +33,8 @@ interface ViewState {
   offsetY: number;
 }
 
-const MIN_NODE_WIDTH = 120;
-const MIN_NODE_HEIGHT = 40;
-const NODE_SPACING = 150;
+const NODE_SPACING_X = 200;
+const NODE_SPACING_Y = 60;
 const MIN_SCALE = 0.5;
 const MAX_SCALE = 2.0;
 
@@ -43,14 +43,15 @@ export const AdvancedMindMap: React.FC = () => {
   const [nodes, setNodes] = useState<Node[]>([
     {
       id: '1',
-      x: 400,
+      x: 200,
       y: 300,
-      width: MIN_NODE_WIDTH,
-      height: MIN_NODE_HEIGHT,
-      content: t('mindMap.newNode'),
+      content: 'メインアイデア',
       children: [],
+      siblings: [],
       isEditing: false,
       isSelected: false,
+      isCollapsed: false,
+      level: 0,
     },
   ]);
   
@@ -74,94 +75,42 @@ export const AdvancedMindMap: React.FC = () => {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [nextNodeId, setNextNodeId] = useState(2);
 
-  // Calculate node position to avoid overlaps
-  const calculateNewNodePosition = useCallback((parentNode: Node, direction: 'top' | 'bottom' | 'left' | 'right'): { x: number; y: number } => {
-    let baseX = parentNode.x;
-    let baseY = parentNode.y;
-    
-    // Calculate base position based on direction
-    switch (direction) {
-      case 'top':
-        baseY -= NODE_SPACING;
-        break;
-      case 'bottom':
-        baseY += NODE_SPACING;
-        break;
-      case 'left':
-        baseX -= NODE_SPACING;
-        break;
-      case 'right':
-        baseX += NODE_SPACING;
-        break;
-    }
-
-    // Check for collisions and adjust position
-    let finalX = baseX;
-    let finalY = baseY;
-    let attempts = 0;
-    const maxAttempts = 20;
-
-    while (attempts < maxAttempts) {
-      const hasCollision = nodes.some(node => {
-        const distance = Math.sqrt(
-          Math.pow(finalX - node.x, 2) + Math.pow(finalY - node.y, 2)
-        );
-        return distance < NODE_SPACING * 0.8;
-      });
-
-      if (!hasCollision) break;
-
-      // Adjust position in a spiral pattern
-      const angle = (attempts * 45) * (Math.PI / 180);
-      const radius = NODE_SPACING * 0.5 * (1 + attempts * 0.2);
-      finalX = baseX + Math.cos(angle) * radius;
-      finalY = baseY + Math.sin(angle) * radius;
-      attempts++;
-    }
-
-    return { x: finalX, y: finalY };
-  }, [nodes]);
-
-  // Calculate text dimensions for dynamic node sizing
-  const calculateTextDimensions = useCallback((text: string): { width: number; height: number } => {
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d');
-    if (!context) return { width: MIN_NODE_WIDTH, height: MIN_NODE_HEIGHT };
-    
-    context.font = '14px system-ui, -apple-system, sans-serif';
-    const metrics = context.measureText(text);
-    const textWidth = metrics.width;
-    
-    // Calculate height based on line breaks
-    const lines = text.split('\n');
-    const lineHeight = 20;
-    const textHeight = lines.length * lineHeight;
-    
+  // 子ノードの位置を計算（右方向）
+  const calculateChildPosition = useCallback((parentNode: Node): { x: number; y: number } => {
     return {
-      width: Math.max(MIN_NODE_WIDTH, textWidth + 40),
-      height: Math.max(MIN_NODE_HEIGHT, textHeight + 20),
+      x: parentNode.x + NODE_SPACING_X,
+      y: parentNode.y,
     };
   }, []);
 
-  // Create new node
-  const createNode = useCallback((parentId: string, direction: 'top' | 'bottom' | 'left' | 'right') => {
+  // 兄弟ノードの位置を計算（下方向）
+  const calculateSiblingPosition = useCallback((parentNode: Node): { x: number; y: number } => {
+    const siblingCount = parentNode.siblings.length;
+    return {
+      x: parentNode.x,
+      y: parentNode.y + NODE_SPACING_Y * (siblingCount + 1),
+    };
+  }, []);
+
+  // 子ノード作成（右方向）
+  const createChildNode = useCallback((parentId: string) => {
     const parentNode = nodes.find(n => n.id === parentId);
     if (!parentNode) return;
 
-    const position = calculateNewNodePosition(parentNode, direction);
-    const dimensions = calculateTextDimensions('New Node');
+    const position = calculateChildPosition(parentNode);
     
     const newNode: Node = {
       id: nextNodeId.toString(),
       x: position.x,
       y: position.y,
-      width: dimensions.width,
-      height: dimensions.height,
-      content: t('mindMap.newNode'),
+      content: '',
       parentId,
       children: [],
+      siblings: [],
       isEditing: true,
       isSelected: true,
+      isCollapsed: false,
+      level: parentNode.level + 1,
     };
 
     setNodes(prev => {
@@ -171,7 +120,7 @@ export const AdvancedMindMap: React.FC = () => {
         isEditing: false,
       }));
       
-      // Update parent's children
+      // 親ノードの子リストに追加
       const parentIndex = updated.findIndex(n => n.id === parentId);
       if (parentIndex !== -1) {
         updated[parentIndex] = {
@@ -184,15 +133,99 @@ export const AdvancedMindMap: React.FC = () => {
     });
 
     setNextNodeId(prev => prev + 1);
-  }, [nodes, nextNodeId, calculateNewNodePosition, calculateTextDimensions, t]);
+  }, [nodes, nextNodeId, calculateChildPosition]);
 
-  // Delete node
+  // 兄弟ノード作成（下方向）
+  const createSiblingNode = useCallback((nodeId: string) => {
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node) return;
+
+    // ルートノードの場合は兄弟ノードを作成
+    if (!node.parentId) {
+      const position = calculateSiblingPosition(node);
+      
+      const newNode: Node = {
+        id: nextNodeId.toString(),
+        x: position.x,
+        y: position.y,
+        content: '',
+        children: [],
+        siblings: [],
+        isEditing: true,
+        isSelected: true,
+        isCollapsed: false,
+        level: node.level,
+      };
+
+      setNodes(prev => {
+        const updated = prev.map(n => ({
+          ...n,
+          isSelected: n.id === newNode.id,
+          isEditing: false,
+        }));
+        
+        // 元のノードの兄弟リストに追加
+        const nodeIndex = updated.findIndex(n => n.id === nodeId);
+        if (nodeIndex !== -1) {
+          updated[nodeIndex] = {
+            ...updated[nodeIndex],
+            siblings: [...updated[nodeIndex].siblings, newNode.id],
+          };
+        }
+        
+        return [...updated, newNode];
+      });
+    } else {
+      // 親ノードがある場合は、親の兄弟として追加
+      const parentNode = nodes.find(n => n.id === node.parentId);
+      if (parentNode) {
+        const position = calculateSiblingPosition(parentNode);
+        
+        const newNode: Node = {
+          id: nextNodeId.toString(),
+          x: position.x,
+          y: position.y,
+          content: '',
+          parentId: node.parentId,
+          children: [],
+          siblings: [],
+          isEditing: true,
+          isSelected: true,
+          isCollapsed: false,
+          level: node.level,
+        };
+
+        setNodes(prev => {
+          const updated = prev.map(n => ({
+            ...n,
+            isSelected: n.id === newNode.id,
+            isEditing: false,
+          }));
+          
+          // 親ノードの兄弟リストに追加
+          const parentIndex = updated.findIndex(n => n.id === node.parentId);
+          if (parentIndex !== -1) {
+            updated[parentIndex] = {
+              ...updated[parentIndex],
+              siblings: [...updated[parentIndex].siblings, newNode.id],
+            };
+          }
+          
+          return [...updated, newNode];
+        });
+      }
+    }
+
+    setNextNodeId(prev => prev + 1);
+  }, [nodes, nextNodeId, calculateSiblingPosition]);
+
+  // ノード削除
   const deleteNode = useCallback((nodeId: string) => {
     setNodes(prev => {
       const nodeToDelete = prev.find(n => n.id === nodeId);
       if (!nodeToDelete) return prev;
 
-      // Remove from parent's children
+      // 親から削除
       const updated = prev.map(node => {
         if (node.children.includes(nodeId)) {
           return {
@@ -200,15 +233,21 @@ export const AdvancedMindMap: React.FC = () => {
             children: node.children.filter(childId => childId !== nodeId),
           };
         }
+        if (node.siblings.includes(nodeId)) {
+          return {
+            ...node,
+            siblings: node.siblings.filter(siblingId => siblingId !== nodeId),
+          };
+        }
         return node;
       });
 
-      // Remove the node and its descendants
+      // ノードとその子孫を削除
       const nodesToRemove = new Set([nodeId]);
       const findDescendants = (id: string) => {
         const node = updated.find(n => n.id === id);
         if (node) {
-          node.children.forEach(childId => {
+          [...node.children, ...node.siblings].forEach(childId => {
             nodesToRemove.add(childId);
             findDescendants(childId);
           });
@@ -220,24 +259,40 @@ export const AdvancedMindMap: React.FC = () => {
     });
   }, []);
 
-  // Update node content
+  // ノード内容更新
   const updateNodeContent = useCallback((nodeId: string, content: string) => {
+    if (content.trim() === '') {
+      // 空の場合はノードを削除
+      deleteNode(nodeId);
+      return;
+    }
+
     setNodes(prev => prev.map(node => {
       if (node.id === nodeId) {
-        const dimensions = calculateTextDimensions(content);
         return {
           ...node,
-          content,
-          width: dimensions.width,
-          height: dimensions.height,
+          content: content.trim(),
           isEditing: false,
         };
       }
       return node;
     }));
-  }, [calculateTextDimensions]);
+  }, [deleteNode]);
 
-  // Select node
+  // 編集キャンセル
+  const cancelEditing = useCallback((nodeId: string) => {
+    const node = nodes.find(n => n.id === nodeId);
+    if (node && node.content === '') {
+      // 内容が空の場合はノードを削除
+      deleteNode(nodeId);
+    } else {
+      setNodes(prev => prev.map(n => 
+        n.id === nodeId ? { ...n, isEditing: false } : n
+      ));
+    }
+  }, [nodes, deleteNode]);
+
+  // ノード選択
   const selectNode = useCallback((nodeId: string) => {
     setNodes(prev => prev.map(node => ({
       ...node,
@@ -246,45 +301,102 @@ export const AdvancedMindMap: React.FC = () => {
     })));
   }, []);
 
-  // Start editing node
-  const startEditing = useCallback((nodeId: string) => {
-    setNodes(prev => prev.map(node => ({
-      ...node,
-      isEditing: node.id === nodeId,
-      isSelected: node.id === nodeId,
-    })));
+  // 兄弟ノードの表示・非表示切り替え
+  const toggleSiblingsVisibility = useCallback((nodeId: string) => {
+    setNodes(prev => prev.map(node => 
+      node.id === nodeId 
+        ? { ...node, isCollapsed: !node.isCollapsed }
+        : node
+    ));
   }, []);
 
-  // Calculate connections
+  // 表示すべきノードをフィルタリング
+  const getVisibleNodes = useCallback(() => {
+    const visibleNodes: Node[] = [];
+    const processedNodes = new Set<string>();
+
+    const processNode = (node: Node) => {
+      if (processedNodes.has(node.id)) return;
+      processedNodes.add(node.id);
+      
+      visibleNodes.push(node);
+
+      // 子ノードを処理
+      node.children.forEach(childId => {
+        const childNode = nodes.find(n => n.id === childId);
+        if (childNode) {
+          processNode(childNode);
+        }
+      });
+
+      // 兄弟ノードを処理（折りたたまれていない場合のみ）
+      if (!node.isCollapsed) {
+        node.siblings.forEach(siblingId => {
+          const siblingNode = nodes.find(n => n.id === siblingId);
+          if (siblingNode) {
+            processNode(siblingNode);
+          }
+        });
+      }
+    };
+
+    // ルートノードから開始
+    const rootNodes = nodes.filter(n => !n.parentId);
+    rootNodes.forEach(processNode);
+
+    return visibleNodes;
+  }, [nodes]);
+
+  // 接続線を計算
   const calculateConnections = useCallback((): Connection[] => {
+    const visibleNodes = getVisibleNodes();
     const newConnections: Connection[] = [];
     
-    nodes.forEach(node => {
-      if (node.parentId) {
-        const parent = nodes.find(n => n.id === node.parentId);
-        if (parent) {
+    visibleNodes.forEach(node => {
+      // 子ノードへの接続
+      node.children.forEach(childId => {
+        const child = visibleNodes.find(n => n.id === childId);
+        if (child) {
           newConnections.push({
-            id: `${parent.id}-${node.id}`,
-            fromNodeId: parent.id,
-            toNodeId: node.id,
-            fromX: parent.x,
-            fromY: parent.y,
-            toX: node.x,
-            toY: node.y,
+            id: `${node.id}-${child.id}`,
+            fromNodeId: node.id,
+            toNodeId: child.id,
+            fromX: node.x + 50, // テキストの右端
+            fromY: node.y,
+            toX: child.x - 10, // テキストの左端
+            toY: child.y,
           });
         }
+      });
+
+      // 兄弟ノードへの接続（折りたたまれていない場合のみ）
+      if (!node.isCollapsed) {
+        node.siblings.forEach(siblingId => {
+          const sibling = visibleNodes.find(n => n.id === siblingId);
+          if (sibling) {
+            newConnections.push({
+              id: `${node.id}-${sibling.id}`,
+              fromNodeId: node.id,
+              toNodeId: sibling.id,
+              fromX: node.x,
+              fromY: node.y + 10, // テキストの下
+              toX: sibling.x,
+              toY: sibling.y - 10, // テキストの上
+            });
+          }
+        });
       }
     });
     
     return newConnections;
-  }, [nodes]);
+  }, [nodes, getVisibleNodes]);
 
-  // Update connections when nodes change
+  // 接続線を更新
   useEffect(() => {
     setConnections(calculateConnections());
   }, [calculateConnections]);
 
-  // Mouse event handlers
+  // マウスイベント処理
   const handleMouseDown = useCallback((e: React.MouseEvent, nodeId?: string) => {
     e.preventDefault();
     const rect = canvasRef.current?.getBoundingClientRect();
@@ -353,7 +465,7 @@ export const AdvancedMindMap: React.FC = () => {
     setDragState(null);
   }, []);
 
-  // Wheel event for zooming
+  // ホイールイベント（ズーム）
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
@@ -363,20 +475,23 @@ export const AdvancedMindMap: React.FC = () => {
     }));
   }, []);
 
-  // Generate SVG path for curved connections
-  const generateConnectionPath = useCallback((connection: Connection): string => {
-    const { fromX, fromY, toX, toY } = connection;
-    const dx = toX - fromX;
-    const dy = toY - fromY;
-    
-    // Control points for smooth bezier curve
-    const cp1x = fromX + dx * 0.5;
-    const cp1y = fromY;
-    const cp2x = toX - dx * 0.5;
-    const cp2y = toY;
-    
-    return `M ${fromX} ${fromY} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${toX} ${toY}`;
-  }, []);
+  // キーボードイベント
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      // 編集中のノードをキャンセル
+      const editingNode = nodes.find(n => n.isEditing);
+      if (editingNode) {
+        cancelEditing(editingNode.id);
+      }
+    }
+  }, [nodes, cancelEditing]);
+
+  useEffect(() => {
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
+
+  const visibleNodes = getVisibleNodes();
 
   return (
     <div className="w-full h-screen bg-gray-100 relative overflow-hidden">
@@ -402,12 +517,14 @@ export const AdvancedMindMap: React.FC = () => {
           }}
         >
           {connections.map(connection => (
-            <path
+            <line
               key={connection.id}
-              d={generateConnectionPath(connection)}
+              x1={connection.fromX}
+              y1={connection.fromY}
+              x2={connection.toX}
+              y2={connection.toY}
               stroke="#888"
               strokeWidth="2"
-              fill="none"
               className="transition-all duration-200"
             />
           ))}
@@ -421,87 +538,99 @@ export const AdvancedMindMap: React.FC = () => {
             transformOrigin: '0 0',
           }}
         >
-          {nodes.map(node => (
-            <div
-              key={node.id}
-              className={`absolute bg-white rounded-lg shadow-md border-2 transition-all duration-200 group ${
-                node.isSelected ? 'border-blue-500 shadow-lg' : 'border-gray-200 hover:border-gray-300'
-              }`}
-              style={{
-                left: node.x - node.width / 2,
-                top: node.y - node.height / 2,
-                width: node.width,
-                height: node.height,
-                cursor: dragState?.dragType === 'node' ? 'grabbing' : 'grab',
-              }}
-              onMouseDown={(e) => {
-                e.stopPropagation();
-                handleMouseDown(e, node.id);
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-                if (!dragState?.isDragging) {
-                  selectNode(node.id);
-                }
-              }}
-              onDoubleClick={(e) => {
-                e.stopPropagation();
-                startEditing(node.id);
-              }}
-            >
-              {/* Delete button */}
-              <button
-                className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center hover:bg-red-600 z-10"
+          {visibleNodes.map(node => (
+            <div key={node.id}>
+              {/* ノード本体（テキストのみ） */}
+              <div
+                className={`absolute transition-all duration-200 group ${
+                  node.isSelected ? 'text-blue-600' : 'text-gray-800'
+                }`}
+                style={{
+                  left: node.x,
+                  top: node.y,
+                  cursor: dragState?.dragType === 'node' ? 'grabbing' : 'grab',
+                }}
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  handleMouseDown(e, node.id);
+                }}
                 onClick={(e) => {
                   e.stopPropagation();
-                  deleteNode(node.id);
+                  if (!dragState?.isDragging) {
+                    selectNode(node.id);
+                  }
                 }}
               >
-                <X className="w-3 h-3" />
-              </button>
-
-              {/* Plus buttons */}
-              {['top', 'bottom', 'left', 'right'].map(direction => (
-                <button
-                  key={direction}
-                  className={`absolute w-6 h-6 bg-blue-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center hover:bg-blue-600 z-10 ${
-                    direction === 'top' ? '-top-3 left-1/2 -translate-x-1/2' :
-                    direction === 'bottom' ? '-bottom-3 left-1/2 -translate-x-1/2' :
-                    direction === 'left' ? 'top-1/2 -left-3 -translate-y-1/2' :
-                    'top-1/2 -right-3 -translate-y-1/2'
-                  }`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    createNode(node.id, direction as 'top' | 'bottom' | 'left' | 'right');
-                  }}
-                >
-                  <Plus className="w-3 h-3" />
-                </button>
-              ))}
-
-              {/* Node content */}
-              <div className="w-full h-full flex items-center justify-center p-3">
+                {/* ノードテキスト */}
                 {node.isEditing ? (
-                  <textarea
-                    className="w-full h-full resize-none border-none outline-none bg-transparent text-center text-sm font-medium"
+                  <input
+                    type="text"
                     defaultValue={node.content}
+                    className="bg-transparent border-b-2 border-blue-500 outline-none text-lg font-medium min-w-[100px]"
                     autoFocus
                     onBlur={(e) => updateNodeContent(node.id, e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
+                      if (e.key === 'Enter') {
                         updateNodeContent(node.id, e.currentTarget.value);
                       } else if (e.key === 'Escape') {
-                        setNodes(prev => prev.map(n => 
-                          n.id === node.id ? { ...n, isEditing: false } : n
-                        ));
+                        cancelEditing(node.id);
                       }
                     }}
                   />
                 ) : (
-                  <span className="text-sm font-medium text-gray-800 text-center whitespace-pre-wrap">
-                    {node.content}
+                  <span className="text-lg font-medium cursor-pointer hover:text-blue-600 transition-colors">
+                    {node.content || 'Empty Node'}
                   </span>
+                )}
+
+                {/* 子ノード追加ボタン（右） */}
+                <button
+                  className="absolute top-1/2 -right-8 transform -translate-y-1/2 w-6 h-6 bg-blue-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center hover:bg-blue-600 z-10"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    createChildNode(node.id);
+                  }}
+                >
+                  <Plus className="w-3 h-3" />
+                </button>
+
+                {/* 兄弟ノード追加ボタン（下） */}
+                <button
+                  className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 w-6 h-6 bg-green-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center hover:bg-green-600 z-10"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    createSiblingNode(node.id);
+                  }}
+                >
+                  <Plus className="w-3 h-3" />
+                </button>
+
+                {/* 削除ボタン */}
+                <button
+                  className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center hover:bg-red-600 z-10"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteNode(node.id);
+                  }}
+                >
+                  <X className="w-3 h-3" />
+                </button>
+
+                {/* 兄弟ノード表示・非表示ボタン */}
+                {node.siblings.length > 0 && (
+                  <button
+                    className="absolute -bottom-4 left-1/2 transform -translate-x-1/2 w-4 h-4 bg-gray-600 text-white rounded-full flex items-center justify-center hover:bg-gray-700 z-10"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleSiblingsVisibility(node.id);
+                    }}
+                  >
+                    {node.isCollapsed ? (
+                      <ChevronRight className="w-2 h-2" />
+                    ) : (
+                      <ChevronDown className="w-2 h-2" />
+                    )}
+                  </button>
                 )}
               </div>
             </div>
@@ -509,20 +638,19 @@ export const AdvancedMindMap: React.FC = () => {
         </div>
       </div>
 
-      {/* Controls */}
+      {/* 操作説明 */}
       <div className="absolute top-4 left-4 bg-white p-4 rounded-lg shadow-md">
-        <h3 className="font-semibold text-gray-800 mb-2">{t('mindMap.controls.title') || 'Mind Map Controls'}</h3>
+        <h3 className="font-semibold text-gray-800 mb-2">操作方法</h3>
         <div className="text-sm text-gray-600 space-y-1">
-          <p>{t('mindMap.controls.clickToSelect')}</p>
-          <p>{t('mindMap.controls.doubleClickToEdit')}</p>
-          <p>{t('mindMap.controls.hoverForButtons')}</p>
-          <p>{t('mindMap.controls.dragToMove')}</p>
-          <p>{t('mindMap.controls.scrollToZoom')}</p>
-          <p>{t('mindMap.controls.dragCanvas')}</p>
+          <p>• ノードをクリックして選択</p>
+          <p>• 青い+ボタン: 子ノード追加（右方向）</p>
+          <p>• 緑の+ボタン: 兄弟ノード追加（下方向）</p>
+          <p>• 丸ボタン: 兄弟ノードの表示・非表示</p>
+          <p>• ESCキー: 編集キャンセル</p>
         </div>
       </div>
 
-      {/* Zoom indicator */}
+      {/* ズーム表示 */}
       <div className="absolute bottom-4 right-4 bg-white px-3 py-2 rounded-lg shadow-md">
         <span className="text-sm font-medium text-gray-700">
           {Math.round(viewState.scale * 100)}%
