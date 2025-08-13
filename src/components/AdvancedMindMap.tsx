@@ -429,21 +429,11 @@ export const AdvancedMindMap: React.FC = () => {
   const getExpandButtonPosition = useCallback((node: Node) => {
     if (node.children.length === 0) return null;
     
-    // 親ノードの右端中央から子ノードの左端中央への中点に配置
-    const parentNodeWidth = node.width || calculateNodeWidth(node.content, !node.parentId);
-    const parentRightX = node.x + parentNodeWidth;
-    
-    // 最初の子ノードの位置を取得
-    const firstChild = nodes.find(n => n.id === node.children[0]);
-    if (!firstChild) return null;
-    
-    const childLeftX = firstChild.x;
-    
-    // 接続線の中央に配置
-    const centerX = (parentRightX + childLeftX) / 2;
+    const isRoot = !node.parentId;
+    const nodeWidth = node.width || calculateNodeWidth(node.content, isRoot);
     
     return {
-      x: centerX,
+      x: node.x + nodeWidth + 20, // ノードの右側に20px離して配置
       y: node.y,
     };
   }, [calculateNodeWidth]);
@@ -463,22 +453,18 @@ export const AdvancedMindMap: React.FC = () => {
         const expandButtonPos = getExpandButtonPosition(node);
         if (!expandButtonPos) return;
 
-        // 親ノードの右端中央
-        const parentNodeWidth = node.width || calculateNodeWidth(node.content, !node.parentId);
-        const parentRightX = node.x + parentNodeWidth;
-        const parentRightY = node.y;
-        
+        const nodeWidth = node.width || calculateNodeWidth(node.content);
         const expandButtonX = expandButtonPos.x;
         const expandButtonY = expandButtonPos.y;
 
-        // 親ノードの右端中央から展開ボタンへの線
+        // 親ノードから展開ボタンへの線
         newConnections.push({
           id: `${node.id}-expand`,
           fromNodeId: node.id,
           toNodeId: 'expand',
-          fromX: parentRightX,
-          fromY: parentRightY,
-          toX: expandButtonX,
+          fromX: node.x + nodeWidth,
+          fromY: node.y,
+          toX: expandButtonX - EXPAND_BUTTON_SIZE / 2,
           toY: expandButtonY,
           type: 'child',
         });
@@ -489,34 +475,30 @@ export const AdvancedMindMap: React.FC = () => {
             const childId = node.children[i];
             const child = visibleNodes.find(n => n.id === childId);
             if (child) {
-              // 子ノードの左端中央
-              const childLeftX = child.x;
-              const childLeftY = child.y;
-              
               if (node.children.length === 1) {
-                // 子ノードが1つの場合は展開ボタンから子ノードの左端中央へ直線
+                // 子ノードが1つの場合は直線
                 newConnections.push({
                   id: `expand-${child.id}`,
                   fromNodeId: 'expand',
                   toNodeId: child.id,
-                  fromX: expandButtonX,
+                  fromX: expandButtonX + EXPAND_BUTTON_SIZE / 2,
                   fromY: expandButtonY,
-                  toX: childLeftX,
-                  toY: childLeftY,
+                  toX: child.x,
+                  toY: child.y,
                   type: 'child',
                 });
               } else {
-                // 複数の子ノードの場合は展開ボタンから子ノードの左端中央へ曲線
+                // 複数の子ノードの場合は曲線
                 const controlX = expandButtonX + 40;
-                const controlY = expandButtonY + (childLeftY - expandButtonY) * 0.2;
+                const controlY = expandButtonY + (child.y - expandButtonY) * 0.2;
                 newConnections.push({
                   id: `expand-${child.id}`,
                   fromNodeId: 'expand',
                   toNodeId: child.id,
-                  fromX: expandButtonX,
+                  fromX: expandButtonX + EXPAND_BUTTON_SIZE / 2,
                   fromY: expandButtonY,
-                  toX: childLeftX,
-                  toY: childLeftY,
+                  toX: child.x,
+                  toY: child.y,
                   type: 'sibling',
                   controlX: controlX,
                   controlY: controlY,
@@ -654,11 +636,6 @@ export const AdvancedMindMap: React.FC = () => {
           style={{
             transform: `scale(${viewState.scale}) translate(${viewState.offsetX}px, ${viewState.offsetY}px)`,
             transformOrigin: '0 0',
-            zIndex: 1,
-          }}
-          style={{
-            transform: `scale(${viewState.scale}) translate(${viewState.offsetX}px, ${viewState.offsetY}px)`,
-            transformOrigin: '0 0',
           }}
         >
           {connections.map(connection => (
@@ -669,8 +646,6 @@ export const AdvancedMindMap: React.FC = () => {
                 stroke="#4F46E5"
                 strokeWidth="2.5"
                 fill="none"
-                strokeLinecap="round"
-                strokeLinejoin="round"
                 className="transition-all duration-300"
               />
             ) : (
@@ -682,7 +657,6 @@ export const AdvancedMindMap: React.FC = () => {
                 y2={connection.toY}
                 stroke="#4F46E5"
                 strokeWidth="3"
-                strokeLinecap="round"
                 className="transition-all duration-300"
               />
             )
@@ -814,15 +788,16 @@ export const AdvancedMindMap: React.FC = () => {
                 <div
                   className="absolute z-10"
                   style={{
-                    left: (getExpandButtonPosition(node)?.x || 0) - 10,
-                    top: (getExpandButtonPosition(node)?.y || 0) - 10,
+                    left: getExpandButtonPosition(node)?.x || 0,
+                    top: getExpandButtonPosition(node)?.y || 0,
+                    transform: 'translate(-50%, -50%)',
                   }}
                 >
                   <button
-                    className={`w-5 h-5 rounded-full flex items-center justify-center transition-all duration-300 shadow-md border-2 ${
+                    className={`w-5 h-5 rounded-full flex items-center justify-center transition-all duration-300 shadow-md ${
                       node.isCollapsed
-                        ? 'bg-blue-500 border-blue-500 text-white hover:bg-blue-600'
-                        : 'bg-white border-blue-500 text-blue-500 hover:bg-blue-50'
+                        ? 'bg-blue-500 text-white hover:bg-blue-600'
+                        : 'bg-white border-2 border-blue-500 text-blue-500 hover:bg-blue-50'
                     }`}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -830,9 +805,9 @@ export const AdvancedMindMap: React.FC = () => {
                     }}
                   >
                     {node.isCollapsed ? (
-                      <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                      <div className="w-2 h-2 bg-white rounded-full" />
                     ) : (
-                      <div className="w-1.5 h-1.5 border border-blue-500 rounded-full" />
+                      <div className="w-2 h-2 border border-blue-500 rounded-full" />
                     )}
                   </button>
                 </div>
