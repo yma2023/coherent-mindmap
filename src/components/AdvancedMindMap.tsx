@@ -654,89 +654,93 @@ export const AdvancedMindMap: React.FC = () => {
                   if (!dragState?.isDragging) {
                     selectNode(node.id);
                   }
-                className={`px-1 py-1 rounded transition-colors cursor-pointer ${
-                  !node.parentId 
-                    ? 'text-2xl font-bold' 
-                    : 'text-lg font-medium'
-                }`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (!dragState?.isDragging) {
-                    startNodeEditing(node.id);
-                  }
                 }}
               >
-                {/* 選択時の枠線 */}
-                {node.isSelected && (
-                  <div className="absolute -inset-2 border-2 border-blue-500 rounded-lg bg-blue-50/20 pointer-events-none" />
-                )}
+                <div
+                  className={`px-1 py-1 rounded transition-colors cursor-pointer ${
+                    !node.parentId 
+                      ? 'text-2xl font-bold' 
+                      : 'text-lg font-medium'
+                  }`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (!dragState?.isDragging) {
+                      startNodeEditing(node.id);
+                    }
+                  }}
+                >
+                  {/* 選択時の枠線 */}
+                  {node.isSelected && (
+                    <div className="absolute -inset-2 border-2 border-blue-500 rounded-lg bg-blue-50/20 pointer-events-none" />
+                  )}
 
-                {/* ノードテキスト */}
-                {node.isEditing ? (
-                  <input
-                    type="text"
-                    defaultValue={node.content === 'New Node' ? '' : node.content}
-                    className="bg-transparent border-b-2 border-blue-500 outline-none text-xl font-medium min-w-[100px] px-1"
-                    autoFocus
-                    onBlur={(e) => updateNodeContent(node.id, e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        updateNodeContent(node.id, e.currentTarget.value);
-                      } else if (e.key === 'Escape') {
-                        cancelEditing(node.id);
-                      }
-                    }}
-                  />
-                ) : (
-                  <span className="text-xl font-medium px-1 py-1 rounded transition-colors">
-                    {node.content}
-                  </span>
-                )}
+                  {/* ノードテキスト */}
+                  {node.isEditing ? (
+                    <input
+                      type="text"
+                      defaultValue={node.content === 'New Node' ? '' : node.content}
+                      className="bg-transparent border-b-2 border-blue-500 outline-none text-xl font-medium min-w-[100px] px-1"
+                      autoFocus
+                      onBlur={(e) => updateNodeContent(node.id, e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          updateNodeContent(node.id, e.currentTarget.value);
+                        } else if (e.key === 'Escape') {
+                          cancelEditing(node.id);
+                        }
+                      }}
+                    />
+                  ) : (
+                    <span className="text-xl font-medium px-1 py-1 rounded transition-colors">
+                      {node.content}
+                    </span>
+                  )}
 
-                {/* 選択時のみ表示される削除ボタン */}
-                {node.isSelected && (
-                  <button
-                    className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 z-20 shadow-md"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteNode(node.id);
-                    }}
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                )}
+                  {/* 選択時のみ表示される削除ボタン */}
+                  {node.isSelected && (
+                    <button
+                      className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 z-20 shadow-md"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteNode(node.id);
+                      }}
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
 
-                {/* 子ノード追加ボタン（右） */}
-                {!node.isEditing && (
-                  <button
-                    className="absolute top-1/2 transform -translate-y-1/2 w-6 h-6 bg-blue-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center hover:bg-blue-600 z-10"
-                    style={{
-                      right: -40,
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      createChildNode(node.id);
-                    }}
-                  >
-                    <Plus className="w-3 h-3" />
-                  </button>
-                )}
+                  {/* 子ノード追加ボタン（右） */}
+                  {!node.isEditing && (
+                    <button
+                      className="absolute top-1/2 transform -translate-y-1/2 w-6 h-6 bg-blue-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center hover:bg-blue-600 z-10"
+                      style={{
+                        right: -40,
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        createChildNode(node.id);
+                      }}
+                    >
+                      <Plus className="w-3 h-3" />
+                    </button>
+                  )}
 
-                {/* 兄弟ノード追加ボタン（下） */}
-                {!node.isEditing && node.parentId && (
-                  <button
-                    className="absolute left-1/2 transform -translate-x-1/2 w-6 h-6 bg-green-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center hover:bg-green-600 z-10"
-                    style={{
-                      bottom: -40,
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      createSiblingNode(node.id);
-                    }}
-                  >
-                    <Plus className="w-3 h-3" />
-                  </button>
-                )}
+                  {/* 兄弟ノード追加ボタン（下） */}
+                  {!node.isEditing && node.parentId && (
+                    <button
+                      className="absolute left-1/2 transform -translate-x-1/2 w-6 h-6 bg-green-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center hover:bg-green-600 z-10"
+                      style={{
+                        bottom: -40,
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        createSiblingNode(node.id);
+                      }}
+                    >
+                      <Plus className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* 展開・折りたたみボタン */}
