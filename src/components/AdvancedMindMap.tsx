@@ -14,6 +14,7 @@ interface Node {
   isSelected: boolean;
   isCollapsed: boolean;
   level: number;
+  width?: number;
 }
 
 interface Connection {
@@ -39,7 +40,7 @@ const NODE_SPACING_X = 200;
 const NODE_SPACING_Y = 80;
 const MIN_SCALE = 0.5;
 const MAX_SCALE = 2.0;
-const COLLAPSE_BUTTON_SIZE = 16;
+const EXPAND_BUTTON_SIZE = 20;
 
 export const AdvancedMindMap: React.FC = () => {
   const { t } = useTranslation();
@@ -76,6 +77,14 @@ export const AdvancedMindMap: React.FC = () => {
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const [nextNodeId, setNextNodeId] = useState(2);
+
+  // ノードの幅を計算する関数
+  const calculateNodeWidth = useCallback((content: string) => {
+    // 文字数に基づいて幅を計算（最小80px、最大300px）
+    const baseWidth = 80;
+    const charWidth = 12;
+    return Math.min(Math.max(baseWidth, content.length * charWidth), 300);
+  }, []);
 
   // 子ノードの位置を自動計算（バランス配置）
   const calculateBalancedChildPositions = useCallback((parentNode: Node): { x: number; y: number }[] => {
@@ -162,6 +171,7 @@ export const AdvancedMindMap: React.FC = () => {
       isSelected: true,
       isCollapsed: false,
       level: parentNode.level + 1,
+      width: calculateNodeWidth(''),
     };
 
     setNodes(prev => {
@@ -211,6 +221,7 @@ export const AdvancedMindMap: React.FC = () => {
       isSelected: true,
       isCollapsed: false,
       level: node.level,
+      width: calculateNodeWidth(''),
     };
 
     setNodes(prev => {
@@ -294,11 +305,12 @@ export const AdvancedMindMap: React.FC = () => {
           ...node,
           content: content.trim(),
           isEditing: false,
+          width: calculateNodeWidth(content.trim()),
         };
       }
       return node;
     }));
-  }, [deleteNode]);
+  }, [deleteNode, calculateNodeWidth]);
 
   // 編集キャンセル
   const cancelEditing = useCallback((nodeId: string) => {
@@ -367,53 +379,60 @@ export const AdvancedMindMap: React.FC = () => {
     
     visibleNodes.forEach(node => {
       if (node.children.length > 0 && !node.isCollapsed) {
-        // 展開ボタンの位置
-        const expandButtonX = node.x + 100;
-        const expandButtonY = node.y;
+        const expandButtonPos = getExpandButtonPosition(node);
+        if (!expandButtonPos) return;
 
-        // 親ノードから展開ボタンへの直線
+        const nodeWidth = node.width || calculateNodeWidth(node.content);
+        const expandButtonX = expandButtonPos.x;
+        const expandButtonY = expandButtonPos.y;
+
+        // 親ノードから展開ボタンへの線
         newConnections.push({
           id: `${node.id}-expand`,
           fromNodeId: node.id,
           toNodeId: 'expand',
-          fromX: node.x + 50,
+          fromX: node.x + nodeWidth,
           fromY: node.y,
-          toX: expandButtonX,
+          toX: expandButtonX - EXPAND_BUTTON_SIZE / 2,
           toY: expandButtonY,
           type: 'child',
         });
 
-        // 展開ボタンから各子ノードへの曲線接続
-        for (let i = 0; i < node.children.length; i++) {
-          const childId = node.children[i];
-          const child = visibleNodes.find(n => n.id === childId);
-          if (child) {
-            if (i === 0 && node.children.length === 1) {
-              // 子ノードが1つの場合は直線
-              newConnections.push({
-                id: `expand-${child.id}`,
-                fromNodeId: 'expand',
-                toNodeId: child.id,
-                fromX: expandButtonX,
-                fromY: expandButtonY,
-                toX: child.x - 10,
-                toY: child.y,
-                type: 'child',
-              });
-            } else {
-              // 複数の子ノードの場合は曲線
-              newConnections.push({
-                id: `expand-${child.id}`,
-                fromNodeId: 'expand',
-                toNodeId: child.id,
-                fromX: expandButtonX,
-                fromY: expandButtonY,
-                toX: child.x - 10,
-                toY: child.y,
-                type: 'sibling',
-                controlX: expandButtonX + 50,
-                controlY: expandButtonY + (child.y - expandButtonY) / 2,
-              });
+        // 展開されている場合のみ子ノードへの接続線を描画
+        if (!node.isCollapsed) {
+          for (let i = 0; i < node.children.length; i++) {
+            const childId = node.children[i];
+            const child = visibleNodes.find(n => n.id === childId);
+            if (child) {
+              if (node.children.length === 1) {
+                // 子ノードが1つの場合は直線
+                newConnections.push({
+                  id: `expand-${child.id}`,
+                  fromNodeId: 'expand',
+                  toNodeId: child.id,
+                  fromX: expandButtonX + EXPAND_BUTTON_SIZE / 2,
+                  fromY: expandButtonY,
+                  toX: child.x,
+                  toY: child.y,
+                  type: 'child',
+                });
+              } else {
+                // 複数の子ノードの場合は曲線
+                const controlX = expandButtonX + 60;
+                const controlY = expandButtonY + (child.y - expandButtonY) * 0.3;
+                newConnections.push({
+                  id: `expand-${child.id}`,
+                  fromNodeId: 'expand',
+                  toNodeId: child.id,
+                  fromX: expandButtonX + EXPAND_BUTTON_SIZE / 2,
+                  fromY: expandButtonY,
+                  toX: child.x,
+                  toY: child.y,
+                  type: 'sibling',
+                  controlX: controlX,
+                  controlY: controlY,
+                });
+              }
             }
           }
         }
@@ -421,23 +440,22 @@ export const AdvancedMindMap: React.FC = () => {
     });
     
     return newConnections;
-  }, [nodes, getVisibleNodes]);
+  }, [nodes, getVisibleNodes, getExpandButtonPosition, calculateNodeWidth]);
 
   // 折りたたみボタンの位置を計算
-  const getCollapseButtonPosition = useCallback((node: Node) => {
+  const getExpandButtonPosition = useCallback((node: Node) => {
     if (node.children.length === 0) return null;
     
-    const firstChild = nodes.find(n => n.id === node.children[0]);
-    if (!firstChild) return null;
+    const nodeWidth = node.width || calculateNodeWidth(node.content);
     
     return {
-      x: node.x + (firstChild.x - node.x) / 2,
+      x: node.x + nodeWidth + 30, // ノードの右側に30px離して配置
       y: node.y,
     };
-  }, [nodes]);
+  }, [calculateNodeWidth]);
 
-  // 折りたたみボタンを表示すべきかチェック
-  const shouldShowCollapseButton = useCallback((node: Node) => {
+  // 展開ボタンを表示すべきかチェック
+  const shouldShowExpandButton = useCallback((node: Node) => {
     return node.children.length > 0;
   }, []);
 
@@ -571,10 +589,10 @@ export const AdvancedMindMap: React.FC = () => {
               <path
                 key={connection.id}
                 d={`M ${connection.fromX} ${connection.fromY} Q ${connection.controlX} ${connection.controlY} ${connection.toX} ${connection.toY}`}
-                stroke="#888"
-                strokeWidth="2"
+                stroke="#4F46E5"
+                strokeWidth="2.5"
                 fill="none"
-                className="transition-all duration-200"
+                className="transition-all duration-300"
               />
             ) : (
               <line
@@ -583,9 +601,9 @@ export const AdvancedMindMap: React.FC = () => {
                 y1={connection.fromY}
                 x2={connection.toX}
                 y2={connection.toY}
-                stroke="#888"
-                strokeWidth="2"
-                className="transition-all duration-200"
+                stroke="#4F46E5"
+                strokeWidth="2.5"
+                className="transition-all duration-300"
               />
             )
           ))}
@@ -601,15 +619,17 @@ export const AdvancedMindMap: React.FC = () => {
         >
           {visibleNodes.map(node => (
             <div key={node.id}>
-              {/* ノード本体（テキストのみ） */}
+              {/* ノード本体 */}
               <div
-                className={`absolute transition-all duration-200 group ${
-                  node.isSelected ? 'text-blue-600' : 'text-gray-800'
+                className={`absolute transition-all duration-300 group cursor-pointer ${
+                  node.isSelected 
+                    ? 'text-blue-600' 
+                    : 'text-gray-800 hover:text-blue-600'
                 }`}
                 style={{
                   left: node.x,
                   top: node.y,
-                  cursor: dragState?.dragType === 'node' ? 'grabbing' : 'grab',
+                  minWidth: node.width || calculateNodeWidth(node.content),
                 }}
                 onMouseDown={(e) => {
                   e.stopPropagation();
@@ -622,12 +642,17 @@ export const AdvancedMindMap: React.FC = () => {
                   }
                 }}
               >
+                {/* 選択時の枠線 */}
+                {node.isSelected && (
+                  <div className="absolute -inset-2 border-2 border-blue-500 rounded-lg bg-blue-50/20 pointer-events-none" />
+                )}
+
                 {/* ノードテキスト */}
                 {node.isEditing ? (
                   <input
                     type="text"
                     defaultValue={node.content === 'New Node' ? '' : node.content}
-                    className="bg-transparent border-b-2 border-blue-500 outline-none text-lg font-medium min-w-[100px]"
+                    className="bg-transparent border-b-2 border-blue-500 outline-none text-xl font-medium min-w-[100px] px-1"
                     autoFocus
                     onBlur={(e) => updateNodeContent(node.id, e.target.value)}
                     onKeyDown={(e) => {
@@ -640,60 +665,86 @@ export const AdvancedMindMap: React.FC = () => {
                   />
                 ) : (
                   <span className="text-lg font-medium cursor-pointer hover:text-blue-600 transition-colors">
+                  <span className="text-xl font-medium px-1 py-1 rounded transition-colors">
                     {node.content}
                   </span>
                 )}
 
+                {/* 選択時のみ表示される削除ボタン */}
+                {node.isSelected && (
+                  <button
+                    className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 z-20 shadow-md"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteNode(node.id);
+                    }}
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+
                 {/* 子ノード追加ボタン（右） */}
-                <button
-                  className="absolute top-1/2 -right-8 transform -translate-y-1/2 w-6 h-6 bg-blue-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center hover:bg-blue-600 z-10"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    createChildNode(node.id);
-                  }}
-                >
-                  <Plus className="w-3 h-3" />
-                </button>
+                {!node.isEditing && (
+                  <button
+                    className="absolute top-1/2 transform -translate-y-1/2 w-6 h-6 bg-blue-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center hover:bg-blue-600 z-10"
+                    style={{
+                      right: -40,
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      createChildNode(node.id);
+                    }}
+                  >
+                    <Plus className="w-3 h-3" />
+                  </button>
+                )}
 
                 {/* 兄弟ノード追加ボタン（下） */}
-                <button
-                  className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 w-6 h-6 bg-green-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center hover:bg-green-600 z-10"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    createSiblingNode(node.id);
-                  }}
-                >
-                  <Plus className="w-3 h-3" />
-                </button>
-
-                {/* 削除ボタン */}
-                <button
-                  className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center hover:bg-red-600 z-10"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    deleteNode(node.id);
-                  }}
-                >
-                  <X className="w-3 h-3" />
-                </button>
-
-                {/* 兄弟ノード表示・非表示ボタン */}
-                {shouldShowCollapseButton(node) && (
+                {!node.isEditing && node.parentId && (
                   <button
-                    className="absolute -bottom-4 left-1/2 transform -translate-x-1/2 w-4 h-4 bg-gray-600 text-white rounded-full flex items-center justify-center hover:bg-gray-700 z-10"
+                    className="absolute left-1/2 transform -translate-x-1/2 w-6 h-6 bg-green-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center hover:bg-green-600 z-10"
+                    style={{
+                      bottom: -40,
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      createSiblingNode(node.id);
+                    }}
+                  >
+                    <Plus className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+
+              {/* 展開・折りたたみボタン */}
+              {shouldShowExpandButton(node) && (
+                <div
+                  className="absolute z-10"
+                  style={{
+                    left: getExpandButtonPosition(node)?.x || 0,
+                    top: getExpandButtonPosition(node)?.y || 0,
+                    transform: 'translate(-50%, -50%)',
+                  }}
+                >
+                  <button
+                    className={`w-5 h-5 rounded-full flex items-center justify-center transition-all duration-300 shadow-md ${
+                      node.isCollapsed
+                        ? 'bg-blue-500 text-white hover:bg-blue-600'
+                        : 'bg-white border-2 border-blue-500 text-blue-500 hover:bg-blue-50'
+                    }`}
                     onClick={(e) => {
                       e.stopPropagation();
                       toggleChildrenVisibility(node.id);
                     }}
                   >
                     {node.isCollapsed ? (
-                      <ChevronRight className="w-2 h-2" />
+                      <div className="w-2 h-2 bg-white rounded-full" />
                     ) : (
-                      <ChevronDown className="w-2 h-2" />
+                      <div className="w-2 h-2 border border-blue-500 rounded-full" />
                     )}
                   </button>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -704,11 +755,11 @@ export const AdvancedMindMap: React.FC = () => {
         <h3 className="font-semibold text-gray-800 mb-2">操作方法</h3>
         <div className="text-sm text-gray-600 space-y-1">
           <p>• ノードをクリックして選択</p>
-          <p>• 青い+ボタン: 子ノード追加（右方向）</p>
-          <p>• 緑の+ボタン: 兄弟ノード追加（下方向）</p>
-          <p>• 丸ボタン: 兄弟ノードの表示・非表示</p>
+          <p>• ホバーで青い+ボタン: 子ノード追加（右方向）</p>
+          <p>• ホバーで緑の+ボタン: 兄弟ノード追加（下方向）</p>
+          <p>• ⚪︎ボタン: 子ノードの表示・非表示</p>
+          <p>• 選択時に削除ボタン表示</p>
           <p>• ESCキー: 編集キャンセル（空の場合は削除）</p>
-          <p>• 子ノードは自動的にバランス良く配置されます</p>
         </div>
       </div>
 
