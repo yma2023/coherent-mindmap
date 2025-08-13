@@ -81,6 +81,16 @@ export const AdvancedMindMap: React.FC = () => {
   // 編集中のノードの一時的な幅を管理
   const [editingNodeWidth, setEditingNodeWidth] = useState<{ [nodeId: string]: number }>({});
 
+  // 編集完了時の処理
+  const handleEditingComplete = useCallback((nodeId: string) => {
+    // 編集中の幅情報をクリア
+    setEditingNodeWidth(prev => {
+      const newState = { ...prev };
+      delete newState[nodeId];
+      return newState;
+    });
+  }, []);
+
   // ノードの幅を計算する関数
   const calculateNodeWidth = useCallback((content: string, isRoot = false) => {
     // 文字数に基づいて幅を計算（文字列の実際の長さに合わせる）
@@ -387,16 +397,6 @@ export const AdvancedMindMap: React.FC = () => {
       adjustChildNodesPosition(nodeId, widthDifference);
     }
   }, [nodes, calculateNodeWidth]);
-
-  // 編集完了時の処理
-  const handleEditingComplete = useCallback((nodeId: string) => {
-    // 編集中の幅情報をクリア
-    setEditingNodeWidth(prev => {
-      const newState = { ...prev };
-      delete newState[nodeId];
-      return newState;
-    });
-  }, []);
 
   // 子ノードの位置を調整する関数
   const adjustChildNodesPosition = useCallback((parentNodeId: string, widthDifference: number) => {
