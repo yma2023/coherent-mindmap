@@ -10,7 +10,6 @@ interface Node {
   content: string;
   parentId?: string;
   children: string[];
-  siblings: string[];
   isEditing: boolean;
   isSelected: boolean;
   isCollapsed: boolean;
@@ -25,6 +24,9 @@ interface Connection {
   fromY: number;
   toX: number;
   toY: number;
+  type: 'child' | 'sibling';
+  controlX?: number;
+  controlY?: number;
 }
 
 interface ViewState {
@@ -34,9 +36,10 @@ interface ViewState {
 }
 
 const NODE_SPACING_X = 200;
-const NODE_SPACING_Y = 60;
+const NODE_SPACING_Y = 80;
 const MIN_SCALE = 0.5;
 const MAX_SCALE = 2.0;
+const COLLAPSE_BUTTON_SIZE = 16;
 
 export const AdvancedMindMap: React.FC = () => {
   const { t } = useTranslation();
@@ -47,7 +50,6 @@ export const AdvancedMindMap: React.FC = () => {
       y: 300,
       content: 'メインアイデア',
       children: [],
-      siblings: [],
       isEditing: false,
       isSelected: false,
       isCollapsed: false,
@@ -83,12 +85,11 @@ export const AdvancedMindMap: React.FC = () => {
     };
   }, []);
 
-  // 兄弟ノードの位置を計算（下方向）
-  const calculateSiblingPosition = useCallback((parentNode: Node): { x: number; y: number } => {
-    const siblingCount = parentNode.siblings.length;
+  // 子ノードの兄弟位置を計算（下方向）
+  const calculateSiblingPosition = useCallback((parentNode: Node, siblingIndex: number): { x: number; y: number } => {
     return {
-      x: parentNode.x,
-      y: parentNode.y + NODE_SPACING_Y * (siblingCount + 1),
+      x: parentNode.x + NODE_SPACING_X,
+      y: parentNode.y + NODE_SPACING_Y * (siblingIndex + 1),
     };
   }, []);
 
@@ -97,7 +98,10 @@ export const AdvancedMindMap: React.FC = () => {
     const parentNode = nodes.find(n => n.id === parentId);
     if (!parentNode) return;
 
-    const position = calculateChildPosition(parentNode);
+    const childCount = parentNode.children.length;
+    const position = childCount === 0 
+      ? calculateChildPosition(parentNode)
+      : calculateSiblingPosition(parentNode, childCount);
     
     const newNode: Node = {
       id: nextNodeId.toString(),
@@ -106,7 +110,6 @@ export const AdvancedMindMap: React.FC = () => {
       content: '',
       parentId,
       children: [],
-      siblings: [],
       isEditing: true,
       isSelected: true,
       isCollapsed: false,
@@ -135,86 +138,48 @@ export const AdvancedMindMap: React.FC = () => {
     setNextNodeId(prev => prev + 1);
   }, [nodes, nextNodeId, calculateChildPosition]);
 
-  // 兄弟ノード作成（下方向）
+  // 兄弟ノード作成（親の子として追加）
   const createSiblingNode = useCallback((nodeId: string) => {
     const node = nodes.find(n => n.id === nodeId);
-    if (!node) return;
+    if (!node || !node.parentId) return;
 
-    // ルートノードの場合は兄弟ノードを作成
-    if (!node.parentId) {
-      const position = calculateSiblingPosition(node);
+    const parentNode = nodes.find(n => n.id === node.parentId);
+    if (!parentNode) return;
+
+    const siblingIndex = parentNode.children.length;
+    const position = calculateSiblingPosition(parentNode, siblingIndex);
+    
+    const newNode: Node = {
+      id: nextNodeId.toString(),
+      x: position.x,
+      y: position.y,
+      content: '',
+      parentId: node.parentId,
+      children: [],
+      isEditing: true,
+      isSelected: true,
+      isCollapsed: false,
+      level: node.level,
+    };
+
+    setNodes(prev => {
+      const updated = prev.map(n => ({
+        ...n,
+        isSelected: n.id === newNode.id,
+        isEditing: false,
+      }));
       
-      const newNode: Node = {
-        id: nextNodeId.toString(),
-        x: position.x,
-        y: position.y,
-        content: '',
-        children: [],
-        siblings: [],
-        isEditing: true,
-        isSelected: true,
-        isCollapsed: false,
-        level: node.level,
-      };
-
-      setNodes(prev => {
-        const updated = prev.map(n => ({
-          ...n,
-          isSelected: n.id === newNode.id,
-          isEditing: false,
-        }));
-        
-        // 元のノードの兄弟リストに追加
-        const nodeIndex = updated.findIndex(n => n.id === nodeId);
-        if (nodeIndex !== -1) {
-          updated[nodeIndex] = {
-            ...updated[nodeIndex],
-            siblings: [...updated[nodeIndex].siblings, newNode.id],
-          };
-        }
-        
-        return [...updated, newNode];
-      });
-    } else {
-      // 親ノードがある場合は、親の兄弟として追加
-      const parentNode = nodes.find(n => n.id === node.parentId);
-      if (parentNode) {
-        const position = calculateSiblingPosition(parentNode);
-        
-        const newNode: Node = {
-          id: nextNodeId.toString(),
-          x: position.x,
-          y: position.y,
-          content: '',
-          parentId: node.parentId,
-          children: [],
-          siblings: [],
-          isEditing: true,
-          isSelected: true,
-          isCollapsed: false,
-          level: node.level,
+      // 親ノードの子リストに追加
+      const parentIndex = updated.findIndex(n => n.id === node.parentId);
+      if (parentIndex !== -1) {
+        updated[parentIndex] = {
+          ...updated[parentIndex],
+          children: [...updated[parentIndex].children, newNode.id],
         };
-
-        setNodes(prev => {
-          const updated = prev.map(n => ({
-            ...n,
-            isSelected: n.id === newNode.id,
-            isEditing: false,
-          }));
-          
-          // 親ノードの兄弟リストに追加
-          const parentIndex = updated.findIndex(n => n.id === node.parentId);
-          if (parentIndex !== -1) {
-            updated[parentIndex] = {
-              ...updated[parentIndex],
-              siblings: [...updated[parentIndex].siblings, newNode.id],
-            };
-          }
-          
-          return [...updated, newNode];
-        });
       }
-    }
+      
+      return [...updated, newNode];
+    });
 
     setNextNodeId(prev => prev + 1);
   }, [nodes, nextNodeId, calculateSiblingPosition]);
@@ -233,12 +198,6 @@ export const AdvancedMindMap: React.FC = () => {
             children: node.children.filter(childId => childId !== nodeId),
           };
         }
-        if (node.siblings.includes(nodeId)) {
-          return {
-            ...node,
-            siblings: node.siblings.filter(siblingId => siblingId !== nodeId),
-          };
-        }
         return node;
       });
 
@@ -247,7 +206,7 @@ export const AdvancedMindMap: React.FC = () => {
       const findDescendants = (id: string) => {
         const node = updated.find(n => n.id === id);
         if (node) {
-          [...node.children, ...node.siblings].forEach(childId => {
+          node.children.forEach(childId => {
             nodesToRemove.add(childId);
             findDescendants(childId);
           });
@@ -302,7 +261,7 @@ export const AdvancedMindMap: React.FC = () => {
   }, []);
 
   // 兄弟ノードの表示・非表示切り替え
-  const toggleSiblingsVisibility = useCallback((nodeId: string) => {
+  const toggleChildrenVisibility = useCallback((nodeId: string) => {
     setNodes(prev => prev.map(node => 
       node.id === nodeId 
         ? { ...node, isCollapsed: !node.isCollapsed }
@@ -321,20 +280,12 @@ export const AdvancedMindMap: React.FC = () => {
       
       visibleNodes.push(node);
 
-      // 子ノードを処理
-      node.children.forEach(childId => {
-        const childNode = nodes.find(n => n.id === childId);
-        if (childNode) {
-          processNode(childNode);
-        }
-      });
-
-      // 兄弟ノードを処理（折りたたまれていない場合のみ）
+      // 子ノードを処理（折りたたまれていない場合のみ）
       if (!node.isCollapsed) {
-        node.siblings.forEach(siblingId => {
-          const siblingNode = nodes.find(n => n.id === siblingId);
-          if (siblingNode) {
-            processNode(siblingNode);
+        node.children.forEach(childId => {
+          const childNode = nodes.find(n => n.id === childId);
+          if (childNode) {
+            processNode(childNode);
           }
         });
       }
@@ -353,8 +304,144 @@ export const AdvancedMindMap: React.FC = () => {
     const newConnections: Connection[] = [];
     
     visibleNodes.forEach(node => {
-      // 子ノードへの接続
-      node.children.forEach(childId => {
+      if (node.children.length > 0 && !node.isCollapsed) {
+        // 最初の子ノードへの直線接続
+        const firstChild = visibleNodes.find(n => n.id === node.children[0]);
+        if (firstChild) {
+          newConnections.push({
+            id: `${node.id}-${firstChild.id}`,
+            fromNodeId: node.id,
+            toNodeId: firstChild.id,
+            fromX: node.x + 50,
+            fromY: node.y,
+            toX: firstChild.x - 10,
+            toY: firstChild.y,
+            type: 'child',
+          });
+        }
+
+        // 他の子ノードへのベジエ曲線接続
+        for (let i = 1; i < node.children.length; i++) {
+          const childId = node.children[i];
+          const child = visibleNodes.find(n => n.id === childId);
+          if (child) {
+            const firstChild = visibleNodes.find(n => n.id === node.children[0]);
+            if (firstChild) {
+              newConnections.push({
+                id: `${node.id}-${child.id}`,
+                fromNodeId: node.id,
+                toNodeId: child.id,
+                fromX: firstChild.x,
+                fromY: firstChild.y,
+                toX: child.x - 10,
+                toY: child.y,
+                type: 'sibling',
+                controlX: firstChild.x,
+                controlY: firstChild.y + (child.y - firstChild.y) / 2,
+              });
+            }
+          }
+        }
+      }
+    });
+    
+    return newConnections;
+  }, [nodes, getVisibleNodes]);
+
+  // 折りたたみボタンの位置を計算
+  const getCollapseButtonPosition = useCallback((node: Node) => {
+    if (node.children.length === 0) return null;
+    
+    const firstChild = nodes.find(n => n.id === node.children[0]);
+    if (!firstChild) return null;
+    
+    return {
+      x: node.x + (firstChild.x - node.x) / 2,
+      y: node.y,
+    };
+  }, [nodes]);
+
+  // 折りたたみボタンを表示すべきかチェック
+  const shouldShowCollapseButton = useCallback((node: Node) => {
+    return node.children.length > 0;
+  }, []);
+
+  // 接続線を更新
+  useEffect(() => {
+    setConnections(calculateConnections());
+  }, [calculateConnections]);
+
+  // マウスイベント処理
+  const handleMouseDown = useCallback((e: React.MouseEvent, nodeId?: string) => {
+    e.preventDefault();
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const clientX = e.clientX - rect.left;
+    const clientY = e.clientY - rect.top;
+
+    if (nodeId) {
+      const node = nodes.find(n => n.id === nodeId);
+      if (node) {
+        setDragState({
+          isDragging: true,
+          dragType: 'node',
+          nodeId,
+          startX: clientX,
+          startY: clientY,
+          initialX: node.x,
+          initialY: node.y,
+        });
+        selectNode(nodeId);
+      }
+    } else {
+      setDragState({
+        isDragging: true,
+        dragType: 'canvas',
+        startX: clientX,
+        startY: clientY,
+        initialX: viewState.offsetX,
+        initialY: viewState.offsetY,
+      });
+    }
+  }, [nodes, viewState, selectNode]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!dragState?.isDragging) return;
+
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const clientX = e.clientX - rect.left;
+    const clientY = e.clientY - rect.top;
+    const deltaX = (clientX - dragState.startX) / viewState.scale;
+    const deltaY = (clientY - dragState.startY) / viewState.scale;
+
+    if (dragState.dragType === 'node' && dragState.nodeId) {
+      setNodes(prev => prev.map(node => 
+        node.id === dragState.nodeId
+          ? {
+              ...node,
+              x: dragState.initialX + deltaX,
+              y: dragState.initialY + deltaY,
+            }
+          : node
+      ));
+    } else if (dragState.dragType === 'canvas') {
+      setViewState(prev => ({
+        ...prev,
+        offsetX: dragState.initialX + deltaX,
+        offsetY: dragState.initialY + deltaY,
+      }));
+    }
+  }, [dragState, viewState.scale]);
+
+  const handleMouseUp = useCallback(() => {
+    setDragState(null);
+  }, []);
+
+  // ホイールイベント（ズーム）
+  const handleWheel = useCallback((e: React.WheelEvent) => {
         const child = visibleNodes.find(n => n.id === childId);
         if (child) {
           newConnections.push({
