@@ -78,6 +78,9 @@ export const AdvancedMindMap: React.FC = () => {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [nextNodeId, setNextNodeId] = useState(2);
 
+  // 編集中のノードの一時的な幅を管理
+  const [editingNodeWidth, setEditingNodeWidth] = useState<{ [nodeId: string]: number }>({});
+
   // ノードの幅を計算する関数
   const calculateNodeWidth = useCallback((content: string, isRoot = false) => {
     // 文字数に基づいて幅を計算（文字列の実際の長さに合わせる）
@@ -347,15 +350,6 @@ export const AdvancedMindMap: React.FC = () => {
       return;
     }
 
-    // 更新前のノード情報を取得
-    const oldNode = nodes.find(n => n.id === nodeId);
-    if (!oldNode) return;
-
-    const isRoot = !oldNode.parentId;
-    const oldWidth = oldNode.width || calculateNodeWidth(oldNode.content, isRoot);
-    const newWidth = calculateNodeWidth(trimmedContent, isRoot);
-    const widthDifference = newWidth - oldWidth;
-
     setNodes(prev => prev.map(node => {
       if (node.id === nodeId) {
         const isRoot = !node.parentId;
@@ -369,13 +363,40 @@ export const AdvancedMindMap: React.FC = () => {
       return node;
     }));
 
-    // 幅が変化した場合、子ノードの位置を調整
+    handleEditingComplete(nodeId);
+  }, [deleteNode, calculateNodeWidth, handleEditingComplete]);
+
+  // 編集中のノード幅変化を処理
+  const handleEditingWidthChange = useCallback((nodeId: string, newContent: string) => {
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node) return;
+
+    const isRoot = !node.parentId;
+    const newWidth = calculateNodeWidth(newContent, isRoot);
+    const oldWidth = node.width || calculateNodeWidth(node.content, isRoot);
+    const widthDifference = newWidth - oldWidth;
+
+    // 編集中の幅を更新
+    setEditingNodeWidth(prev => ({
+      ...prev,
+      [nodeId]: newWidth
+    }));
+
+    // 幅が変化した場合、子ノードの位置を即座に調整
     if (Math.abs(widthDifference) > 1) {
-      setTimeout(() => {
-        adjustChildNodesPosition(nodeId, widthDifference);
-      }, 0);
+      adjustChildNodesPosition(nodeId, widthDifference);
     }
-  }, [deleteNode, calculateNodeWidth]);
+  }, [nodes, calculateNodeWidth]);
+
+  // 編集完了時の処理
+  const handleEditingComplete = useCallback((nodeId: string) => {
+    // 編集中の幅情報をクリア
+    setEditingNodeWidth(prev => {
+      const newState = { ...prev };
+      delete newState[nodeId];
+      return newState;
+    });
+  }, []);
 
   // 子ノードの位置を調整する関数
   const adjustChildNodesPosition = useCallback((parentNodeId: string, widthDifference: number) => {
@@ -759,7 +780,12 @@ export const AdvancedMindMap: React.FC = () => {
                       className={`bg-transparent border-b-2 border-blue-500 outline-none px-1 w-full ${
                         !node.parentId ? 'text-2xl font-bold' : 'text-lg font-medium'
                       }`}
+                      style={{
+                        width: editingNodeWidth[node.id] ? `${editingNodeWidth[node.id]}px` : 'auto',
+                        minWidth: '20px'
+                      }}
                       autoFocus
+                      onChange={(e) => handleEditingWidthChange(node.id, e.target.value)}
                       onBlur={(e) => updateNodeContent(node.id, e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
