@@ -87,40 +87,22 @@ export const AdvancedMindMap: React.FC = () => {
     return Math.min(Math.max(baseWidth, content.length * charWidth), maxWidth);
   }, []);
 
-  // ノードの右端中央座標を取得
-  const getNodeRightCenter = useCallback((node: Node) => {
-    const nodeWidth = node.width || calculateNodeWidth(node.content, !node.parentId);
-    return {
-      x: node.x + nodeWidth,
-      y: node.y
-    };
-  }, [calculateNodeWidth]);
-
-  // ノードの左端中央座標を取得
-  const getNodeLeftCenter = useCallback((node: Node) => {
-    return {
-      x: node.x,
-      y: node.y
-    };
-  }, []);
-
   // 子ノードの位置を自動計算（バランス配置）
   const calculateBalancedChildPositions = useCallback((parentNode: Node): { x: number; y: number }[] => {
     const childCount = parentNode.children.length;
     if (childCount === 0) return [];
 
-    const parentRightCenter = getNodeRightCenter(parentNode);
-    const baseX = parentRightCenter.x + NODE_SPACING_X;
+    const baseX = parentNode.x + NODE_SPACING_X;
     const positions: { x: number; y: number }[] = [];
 
     if (childCount === 1) {
       // 1つの場合：親ノードと同じ高さ
-      positions.push({ x: baseX, y: parentRightCenter.y });
+      positions.push({ x: baseX, y: parentNode.y });
     } else {
       // 複数の場合：上下にバランス良く配置
       const spacing = Math.max(60, NODE_SPACING_Y - (childCount - 2) * 10); // 動的間隔調整
       const totalHeight = (childCount - 1) * spacing;
-      const startY = parentRightCenter.y - totalHeight / 2;
+      const startY = parentNode.y - totalHeight / 2;
 
       for (let i = 0; i < childCount; i++) {
         positions.push({
@@ -131,7 +113,7 @@ export const AdvancedMindMap: React.FC = () => {
     }
 
     return positions;
-  }, [getNodeRightCenter]);
+  }, []);
 
   // 子ノードの位置を再計算して更新
   const rebalanceChildNodes = useCallback((parentId: string) => {
@@ -407,13 +389,14 @@ export const AdvancedMindMap: React.FC = () => {
   const getExpandButtonPosition = useCallback((node: Node) => {
     if (node.children.length === 0) return null;
     
-    const parentRightCenter = getNodeRightCenter(node);
+    const isRoot = !node.parentId;
+    const nodeWidth = node.width || calculateNodeWidth(node.content, isRoot);
     
     return {
-      x: parentRightCenter.x + NODE_SPACING_X / 2, // 親ノードと子ノードの中間
-      y: parentRightCenter.y,
+      x: node.x + nodeWidth + 20, // ノードの右側に20px離して配置
+      y: node.y,
     };
-  }, [getNodeRightCenter]);
+  }, [calculateNodeWidth]);
 
   // 展開ボタンを表示すべきかチェック
   const shouldShowExpandButton = useCallback((node: Node) => {
@@ -430,7 +413,7 @@ export const AdvancedMindMap: React.FC = () => {
         const expandButtonPos = getExpandButtonPosition(node);
         if (!expandButtonPos) return;
 
-        const parentRightCenter = getNodeRightCenter(node);
+        const nodeWidth = node.width || calculateNodeWidth(node.content);
         const expandButtonX = expandButtonPos.x;
         const expandButtonY = expandButtonPos.y;
 
@@ -439,8 +422,8 @@ export const AdvancedMindMap: React.FC = () => {
           id: `${node.id}-expand`,
           fromNodeId: node.id,
           toNodeId: 'expand',
-          fromX: parentRightCenter.x,
-          fromY: parentRightCenter.y,
+          fromX: node.x + nodeWidth,
+          fromY: node.y,
           toX: expandButtonX - EXPAND_BUTTON_SIZE / 2,
           toY: expandButtonY,
           type: 'child',
@@ -452,35 +435,33 @@ export const AdvancedMindMap: React.FC = () => {
             const childId = node.children[i];
             const child = visibleNodes.find(n => n.id === childId);
             if (child) {
-              const childLeftCenter = getNodeLeftCenter(child);
-              
-              if (Math.abs(childLeftCenter.y - expandButtonY) < 5) {
-                // 子ノードが展開ボタンと同じ高さの場合は水平線
+              if (node.children.length === 1) {
+                // 子ノードが1つの場合は直線
                 newConnections.push({
                   id: `expand-${child.id}`,
                   fromNodeId: 'expand',
                   toNodeId: child.id,
                   fromX: expandButtonX + EXPAND_BUTTON_SIZE / 2,
                   fromY: expandButtonY,
-                  toX: childLeftCenter.x,
-                  toY: childLeftCenter.y,
+                  toX: child.x,
+                  toY: child.y,
                   type: 'child',
                 });
               } else {
-                // 子ノードが展開ボタンより上下にある場合は「かぎかっこ」カーブ
-                const midX = (expandButtonX + childLeftCenter.x) / 2;
-                
+                // 複数の子ノードの場合は曲線
+                const controlX = expandButtonX + 40;
+                const controlY = expandButtonY + (child.y - expandButtonY) * 0.2;
                 newConnections.push({
                   id: `expand-${child.id}`,
                   fromNodeId: 'expand',
                   toNodeId: child.id,
                   fromX: expandButtonX + EXPAND_BUTTON_SIZE / 2,
                   fromY: expandButtonY,
-                  toX: childLeftCenter.x,
-                  toY: childLeftCenter.y,
+                  toX: child.x,
+                  toY: child.y,
                   type: 'sibling',
-                  controlX: midX,
-                  controlY: expandButtonY,
+                  controlX: controlX,
+                  controlY: controlY,
                 });
               }
             }
@@ -490,7 +471,7 @@ export const AdvancedMindMap: React.FC = () => {
     });
     
     return newConnections;
-  }, [nodes, getVisibleNodes, getExpandButtonPosition, getNodeRightCenter, getNodeLeftCenter]);
+  }, [nodes, getVisibleNodes, getExpandButtonPosition, calculateNodeWidth]);
 
   // 接続線を更新
   useEffect(() => {
@@ -619,18 +600,15 @@ export const AdvancedMindMap: React.FC = () => {
         >
           {connections.map(connection => (
             connection.type === 'sibling' && connection.controlX && connection.controlY ? (
-              // 「かぎかっこ」のような曲線
               <path
                 key={connection.id}
-                d={`M ${connection.fromX} ${connection.fromY} L ${connection.controlX} ${connection.controlY} L ${connection.toX} ${connection.toY}`}
+                d={`M ${connection.fromX} ${connection.fromY} Q ${connection.controlX} ${connection.controlY} ${connection.toX} ${connection.toY}`}
                 stroke="#4F46E5"
                 strokeWidth="2.5"
                 fill="none"
-                strokeLinejoin="round"
                 className="transition-all duration-300"
               />
             ) : (
-              // 水平線
               <line
                 key={connection.id}
                 x1={connection.fromX}
@@ -665,6 +643,7 @@ export const AdvancedMindMap: React.FC = () => {
                 style={{
                   left: node.x,
                   top: node.y,
+                  minWidth: node.width || calculateNodeWidth(node.content),
                 }}
                 onMouseDown={(e) => {
                   e.stopPropagation();
@@ -712,7 +691,7 @@ export const AdvancedMindMap: React.FC = () => {
                       }}
                     />
                   ) : (
-                    <span>
+                    <span className="text-xl font-medium px-1 py-1 rounded transition-colors">
                       {node.content}
                     </span>
                   )}
