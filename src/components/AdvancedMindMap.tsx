@@ -157,10 +157,12 @@ export const AdvancedMindMap: React.FC = () => {
     const parentNode = nodes.find(n => n.id === parentId);
     if (!parentNode) return;
 
-    const childCount = parentNode.children.length;
-    const position = childCount === 0 
-      ? calculateChildPosition(parentNode)
-      : calculateSiblingPosition(parentNode, childCount);
+    // 新しいノードの位置を計算（既存の子ノードがある場合は再配置を考慮）
+    const newPositions = calculateBalancedChildPositions({
+      ...parentNode,
+      children: [...parentNode.children, nextNodeId.toString()]
+    });
+    const position = newPositions[parentNode.children.length] || calculateChildPosition(parentNode);
     
     const newNode: Node = {
       id: nextNodeId.toString(),
@@ -195,8 +197,25 @@ export const AdvancedMindMap: React.FC = () => {
       return [...updated, newNode];
     });
 
-    // 子ノードの位置を再バランス
-    setTimeout(() => rebalanceChildNodes(parentId), 0);
+    // 既存の子ノードの位置を即座に再バランス
+    if (parentNode.children.length > 0) {
+      const updatedParent = { ...parentNode, children: [...parentNode.children, newNode.id] };
+      const allPositions = calculateBalancedChildPositions(updatedParent);
+      
+      setTimeout(() => {
+        setNodes(prev => prev.map(node => {
+          const childIndex = parentNode.children.indexOf(node.id);
+          if (childIndex !== -1 && allPositions[childIndex]) {
+            return {
+              ...node,
+              x: allPositions[childIndex].x,
+              y: allPositions[childIndex].y
+            };
+          }
+          return node;
+        }));
+      }, 0);
+    }
 
     setNextNodeId(prev => prev + 1);
   }, [nodes, nextNodeId, calculateChildPosition, rebalanceChildNodes, calculateNodeWidth]);
@@ -209,8 +228,12 @@ export const AdvancedMindMap: React.FC = () => {
     const parentNode = nodes.find(n => n.id === node.parentId);
     if (!parentNode) return;
 
-    const siblingIndex = parentNode.children.length;
-    const position = calculateSiblingPosition(parentNode, siblingIndex);
+    // 新しい兄弟ノードを含めた位置を計算
+    const newPositions = calculateBalancedChildPositions({
+      ...parentNode,
+      children: [...parentNode.children, nextNodeId.toString()]
+    });
+    const position = newPositions[parentNode.children.length] || calculateSiblingPosition(parentNode, parentNode.children.length);
     
     const newNode: Node = {
       id: nextNodeId.toString(),
@@ -245,8 +268,25 @@ export const AdvancedMindMap: React.FC = () => {
       return [...updated, newNode];
     });
 
-    // 子ノードの位置を再バランス
-    setTimeout(() => rebalanceChildNodes(node.parentId!), 0);
+    // 既存の兄弟ノードの位置を即座に再バランス
+    if (parentNode.children.length > 0) {
+      const updatedParent = { ...parentNode, children: [...parentNode.children, newNode.id] };
+      const allPositions = calculateBalancedChildPositions(updatedParent);
+      
+      setTimeout(() => {
+        setNodes(prev => prev.map(n => {
+          const childIndex = parentNode.children.indexOf(n.id);
+          if (childIndex !== -1 && allPositions[childIndex]) {
+            return {
+              ...n,
+              x: allPositions[childIndex].x,
+              y: allPositions[childIndex].y
+            };
+          }
+          return n;
+        }));
+      }, 0);
+    }
 
     setNextNodeId(prev => prev + 1);
   }, [nodes, nextNodeId, calculateSiblingPosition, rebalanceChildNodes, calculateNodeWidth]);
