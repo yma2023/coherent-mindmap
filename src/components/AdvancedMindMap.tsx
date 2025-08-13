@@ -536,21 +536,8 @@ export const AdvancedMindMap: React.FC = () => {
     const clientX = e.clientX - rect.left;
     const clientY = e.clientY - rect.top;
 
-    if (nodeId) {
-      const node = nodes.find(n => n.id === nodeId);
-      if (node) {
-        setDragState({
-          isDragging: true,
-          dragType: 'node',
-          nodeId,
-          startX: clientX,
-          startY: clientY,
-          initialX: node.x,
-          initialY: node.y,
-        });
-        selectNode(nodeId);
-      }
-    } else {
+    // 個別ノードのドラッグは無効化し、キャンバス全体のドラッグのみ有効
+    if (!nodeId) {
       setDragState({
         isDragging: true,
         dragType: 'canvas',
@@ -559,6 +546,9 @@ export const AdvancedMindMap: React.FC = () => {
         initialX: viewState.offsetX,
         initialY: viewState.offsetY,
       });
+    } else {
+      // ノードクリック時は選択のみ行う
+      selectNode(nodeId);
     }
   }, [nodes, viewState, selectNode]);
 
@@ -573,17 +563,8 @@ export const AdvancedMindMap: React.FC = () => {
     const deltaX = (clientX - dragState.startX) / viewState.scale;
     const deltaY = (clientY - dragState.startY) / viewState.scale;
 
-    if (dragState.dragType === 'node' && dragState.nodeId) {
-      setNodes(prev => prev.map(node => 
-        node.id === dragState.nodeId
-          ? {
-              ...node,
-              x: dragState.initialX + deltaX,
-              y: dragState.initialY + deltaY,
-            }
-          : node
-      ));
-    } else if (dragState.dragType === 'canvas') {
+    // キャンバス全体のドラッグのみ処理
+    if (dragState.dragType === 'canvas') {
       setViewState(prev => ({
         ...prev,
         offsetX: dragState.initialX + deltaX,
@@ -694,15 +675,9 @@ export const AdvancedMindMap: React.FC = () => {
                   top: node.y,
                   minWidth: node.width || calculateNodeWidth(node.content),
                 }}
-                onMouseDown={(e) => {
-                  e.stopPropagation();
-                  handleMouseDown(e, node.id);
-                }}
                 onClick={(e) => {
                   e.stopPropagation();
-                  if (!dragState?.isDragging) {
-                    selectNode(node.id);
-                  }
+                  selectNode(node.id);
                 }}
               >
                 <div
