@@ -868,6 +868,20 @@ export const AdvancedMindMap: React.FC = () => {
             }
           }
           return;
+        case 'r':
+        case 'R':
+          // Rキーで右に子ノードを追加
+          createChildNode(selectedNode.id);
+          setNavigationMode(false); // 編集モードに移行するためナビゲーションモードを終了
+          return;
+        case 'd':
+        case 'D':
+          // Dキーで下に兄弟ノードを追加（親ノードがある場合のみ）
+          if (selectedNode.parentId) {
+            createSiblingNode(selectedNode.id);
+            setNavigationMode(false); // 編集モードに移行するためナビゲーションモードを終了
+          }
+          return;
       }
       
       if (targetNodeId) {
@@ -1110,7 +1124,7 @@ export const AdvancedMindMap: React.FC = () => {
           <p>• ⚪︎ボタン: 子ノードの表示・非表示</p>
           <p>• 選択時に削除ボタン表示</p>
           <p>• ESCキー: 編集キャンセル / ナビゲーションモード切り替え</p>
-          <p>• ナビゲーションモード時: ↑↓←→でノード移動、Enterで編集</p>
+          <p>• ナビゲーションモード時: ↑↓←→でノード移動、Enterで編集、Rで右に追加、Dで下に追加</p>
           <p>• 空ノードは自動削除</p>
         </div>
       </div>
@@ -1123,7 +1137,7 @@ export const AdvancedMindMap: React.FC = () => {
             <span className="text-sm font-medium">ナビゲーションモード</span>
           </div>
           <div className="text-xs mt-1 opacity-90">
-            ↑↓←→: 移動 | Enter: 編集 | Delete/BS: 削除 | ESC: 終了
+            ↑↓←→: 移動 | Enter: 編集 | R: 右に追加 | D: 下に追加 | Delete/BS: 削除 | ESC: 終了
           </div>
         </div>
       )}
