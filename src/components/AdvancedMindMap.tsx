@@ -798,7 +798,10 @@ export const AdvancedMindMap: React.FC = () => {
                   ) : (
                     <span className={`px-1 py-1 rounded transition-colors block whitespace-nowrap overflow-hidden text-ellipsis ${
                       !node.parentId ? 'text-2xl font-bold' : 'text-lg font-medium'
-                    }`}>
+                    }`}
+                    style={{
+                      width: node.width || calculateNodeWidth(node.content, !node.parentId),
+                    }}>
                       {node.content}
                     </span>
                   )}
