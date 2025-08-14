@@ -1421,13 +1421,13 @@ export const MindMapCanvas: React.FC = () => {
         <button
           onClick={() => setShowAICommand(true)}
           className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-full shadow-lg transition-all duration-200 hover:scale-105"
-        >
+        className="fixed bottom-20 right-4 w-14 h-14 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center z-20 hover:scale-110"
           <Plus className="w-6 h-6" />
         </button>
       </div>
 
       {/* Zoom display */}
-      <div className="absolute bottom-4 right-4 bg-white px-3 py-2 rounded-lg shadow-md">
+      <div className="fixed bottom-4 right-4 bg-white/90 backdrop-blur-sm px-4 py-2 rounded-xl shadow-lg border border-white/50">
         <span className="text-sm font-medium text-gray-700">
           {Math.round(viewState.scale * 100)}%
         </span>
