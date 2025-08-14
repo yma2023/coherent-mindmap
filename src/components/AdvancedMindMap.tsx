@@ -689,6 +689,50 @@ export const AdvancedMindMap: React.FC = () => {
     setConnections(calculateConnections());
   }, [calculateConnections]);
 
+  // 2つのノード間の距離を計算
+  const getDistance = useCallback((node1: Node, node2: Node): number => {
+    return Math.sqrt(Math.pow(node2.x - node1.x, 2) + Math.pow(node2.y - node1.y, 2));
+  }, []);
+
+  // 指定方向の最も近いノードを見つける関数
+  const findNearestNode = useCallback((currentNode: Node, direction: 'up' | 'down' | 'left' | 'right'): string | null => {
+    const visibleNodes = getVisibleNodes().filter(n => n.id !== currentNode.id);
+    if (visibleNodes.length === 0) return null;
+    
+    let candidates: Node[] = [];
+    
+    switch (direction) {
+      case 'up':
+        candidates = visibleNodes.filter(n => n.y < currentNode.y - 10); // 10px以上上にあるノード
+        break;
+      case 'down':
+        candidates = visibleNodes.filter(n => n.y > currentNode.y + 10); // 10px以上下にあるノード
+        break;
+      case 'left':
+        candidates = visibleNodes.filter(n => n.x < currentNode.x - 10); // 10px以上左にあるノード
+        break;
+      case 'right':
+        candidates = visibleNodes.filter(n => n.x > currentNode.x + 10); // 10px以上右にあるノード
+        break;
+    }
+    
+    if (candidates.length === 0) return null;
+    
+    // 最も近いノードを見つける
+    let nearestNode = candidates[0];
+    let minDistance = getDistance(currentNode, nearestNode);
+    
+    for (let i = 1; i < candidates.length; i++) {
+      const distance = getDistance(currentNode, candidates[i]);
+      if (distance < minDistance) {
+        minDistance = distance;
+        nearestNode = candidates[i];
+      }
+    }
+    
+    return nearestNode.id;
+  }, [getVisibleNodes, getDistance]);
+
   // マウスイベント処理
   const handleMouseDown = useCallback((e: React.MouseEvent, nodeId?: string) => {
     e.preventDefault();
@@ -811,50 +855,6 @@ export const AdvancedMindMap: React.FC = () => {
     }
   }, [nodes, navigationMode, cancelEditing, selectNode, startNodeEditing, findNearestNode]);
   
-  // 指定方向の最も近いノードを見つける関数
-  const findNearestNode = useCallback((currentNode: Node, direction: 'up' | 'down' | 'left' | 'right'): string | null => {
-    const visibleNodes = getVisibleNodes().filter(n => n.id !== currentNode.id);
-    if (visibleNodes.length === 0) return null;
-    
-    let candidates: Node[] = [];
-    
-    switch (direction) {
-      case 'up':
-        candidates = visibleNodes.filter(n => n.y < currentNode.y - 10); // 10px以上上にあるノード
-        break;
-      case 'down':
-        candidates = visibleNodes.filter(n => n.y > currentNode.y + 10); // 10px以上下にあるノード
-        break;
-      case 'left':
-        candidates = visibleNodes.filter(n => n.x < currentNode.x - 10); // 10px以上左にあるノード
-        break;
-      case 'right':
-        candidates = visibleNodes.filter(n => n.x > currentNode.x + 10); // 10px以上右にあるノード
-        break;
-    }
-    
-    if (candidates.length === 0) return null;
-    
-    // 最も近いノードを見つける
-    let nearestNode = candidates[0];
-    let minDistance = getDistance(currentNode, nearestNode);
-    
-    for (let i = 1; i < candidates.length; i++) {
-      const distance = getDistance(currentNode, candidates[i]);
-      if (distance < minDistance) {
-        minDistance = distance;
-        nearestNode = candidates[i];
-      }
-    }
-    
-    return nearestNode.id;
-  }, [getVisibleNodes, getDistance]);
-  
-  // 2つのノード間の距離を計算
-  const getDistance = useCallback((node1: Node, node2: Node): number => {
-    return Math.sqrt(Math.pow(node2.x - node1.x, 2) + Math.pow(node2.y - node1.y, 2));
-  }, []);
-
   useEffect(() => {
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
