@@ -751,9 +751,13 @@ export const AdvancedMindMap: React.FC = () => {
 
   // キーボードイベント
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    // 編集中の場合は通常のキーボード操作を優先
+    const editingNode = nodes.find(n => n.isEditing);
+    if (editingNode && e.key !== 'Escape') {
+      return;
+    }
+
     if (e.key === 'Escape') {
-      // 編集中のノードをキャンセル
-      const editingNode = nodes.find(n => n.isEditing);
       if (editingNode) {
         cancelEditing(editingNode.id);
         return;
@@ -763,16 +767,17 @@ export const AdvancedMindMap: React.FC = () => {
       setNavigationMode(prev => !prev);
       
       // ナビゲーションモードに入る時、選択されたノードがない場合は最初のノードを選択
-      if (!navigationMode) {
+      if (!navigationMode && nodes.length > 0) {
         const selectedNode = nodes.find(n => n.isSelected);
-        if (!selectedNode && nodes.length > 0) {
+        if (!selectedNode) {
           selectNode(nodes[0].id);
         }
       }
+      return;
     }
     
     // ナビゲーションモード時のカーソルキー操作
-    if (navigationMode && !nodes.some(n => n.isEditing)) {
+    if (navigationMode) {
       const selectedNode = nodes.find(n => n.isSelected);
       if (!selectedNode) return;
       
@@ -797,14 +802,14 @@ export const AdvancedMindMap: React.FC = () => {
           // Enterキーで編集モードに入る
           startNodeEditing(selectedNode.id);
           setNavigationMode(false);
-          break;
+          return;
       }
       
       if (targetNodeId) {
         selectNode(targetNodeId);
       }
     }
-  }, [nodes, cancelEditing]);
+  }, [nodes, navigationMode, cancelEditing, selectNode, startNodeEditing, findNearestNode]);
   
   // 指定方向の最も近いノードを見つける関数
   const findNearestNode = useCallback((currentNode: Node, direction: 'up' | 'down' | 'left' | 'right'): string | null => {
@@ -815,16 +820,16 @@ export const AdvancedMindMap: React.FC = () => {
     
     switch (direction) {
       case 'up':
-        candidates = visibleNodes.filter(n => n.y < currentNode.y);
+        candidates = visibleNodes.filter(n => n.y < currentNode.y - 10); // 10px以上上にあるノード
         break;
       case 'down':
-        candidates = visibleNodes.filter(n => n.y > currentNode.y);
+        candidates = visibleNodes.filter(n => n.y > currentNode.y + 10); // 10px以上下にあるノード
         break;
       case 'left':
-        candidates = visibleNodes.filter(n => n.x < currentNode.x);
+        candidates = visibleNodes.filter(n => n.x < currentNode.x - 10); // 10px以上左にあるノード
         break;
       case 'right':
-        candidates = visibleNodes.filter(n => n.x > currentNode.x);
+        candidates = visibleNodes.filter(n => n.x > currentNode.x + 10); // 10px以上右にあるノード
         break;
     }
     
@@ -843,7 +848,7 @@ export const AdvancedMindMap: React.FC = () => {
     }
     
     return nearestNode.id;
-  }, [getVisibleNodes]);
+  }, [getVisibleNodes, getDistance]);
   
   // 2つのノード間の距離を計算
   const getDistance = useCallback((node1: Node, node2: Node): number => {
