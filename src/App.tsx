@@ -19,14 +19,7 @@ import '@xyflow/react/dist/style.css';
 const MindMapApp: React.FC = () => {
   return (
     <div className="h-screen flex flex-col bg-gray-50">
-      <Toolbar />
-      <div className="flex flex-1 overflow-hidden">
-        <LeftSidebar />
-        <div className="flex-1 relative">
-          <MindMapCanvas />
-        </div>
-        <RightSidebar />
-      </div>
+      <MindMapCanvas />
     </div>
   );
 };
