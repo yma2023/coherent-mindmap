@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Plus, X, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, X, ChevronDown, ChevronRight, Download, Upload, Save, FolderOpen } from 'lucide-react';
 import { useTranslation } from '../hooks/useTranslation';
 import { LanguageSwitcher } from './LanguageSwitcher';
 
@@ -43,6 +43,18 @@ const MIN_SCALE = 0.5;
 const MAX_SCALE = 2.0;
 const EXPAND_BUTTON_SIZE = 20;
 
+// エクスポート用のデータ型定義
+interface ExportData {
+  version: string;
+  createdAt: string;
+  nodes: Node[];
+  metadata: {
+    title: string;
+    nodeCount: number;
+    maxLevel: number;
+  };
+}
+
 export const AdvancedMindMap: React.FC = () => {
   const { t } = useTranslation();
   const [nodes, setNodes] = useState<Node[]>([
@@ -80,6 +92,9 @@ export const AdvancedMindMap: React.FC = () => {
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const [nextNodeId, setNextNodeId] = useState(2);
+
+  // インポート・エクスポート用のref
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 編集中のノードの一時的な幅を管理
   const [editingNodeWidth, setEditingNodeWidth] = useState<{ [nodeId: string]: number }>({});
@@ -468,6 +483,93 @@ export const AdvancedMindMap: React.FC = () => {
 
     handleEditingComplete(nodeId);
   }, [deleteNode, calculateNodeWidth, handleEditingComplete]);
+
+  // エクスポート機能
+  const exportMindMap = useCallback(() => {
+    const exportData: ExportData = {
+      version: '1.0.0',
+      createdAt: new Date().toISOString(),
+      nodes: nodes,
+      metadata: {
+        title: nodes.find(n => !n.parentId)?.content || 'Untitled Mind Map',
+        nodeCount: nodes.length,
+        maxLevel: Math.max(...nodes.map(n => n.level)),
+      },
+    };
+
+    const dataStr = JSON.stringify(exportData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `mindmap_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, [nodes]);
+
+  // インポート機能
+  const importMindMap = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        const importData: ExportData = JSON.parse(content);
+        
+        // データの検証
+        if (!importData.nodes || !Array.isArray(importData.nodes)) {
+          alert('無効なファイル形式です。');
+          return;
+        }
+
+        // ノードデータの復元
+        const importedNodes = importData.nodes.map(node => ({
+          ...node,
+          isEditing: false,
+          isSelected: false,
+        }));
+
+        // 最大IDを計算して次のIDを設定
+        const maxId = Math.max(...importedNodes.map(n => parseInt(n.id) || 0));
+        setNextNodeId(maxId + 1);
+
+        // ノードを設定
+        setNodes(importedNodes);
+        
+        // ビューをリセット
+        setViewState({
+          scale: 1,
+          offsetX: 0,
+          offsetY: 0,
+        });
+
+        // ナビゲーションモードを終了
+        setNavigationMode(false);
+
+        alert(`マインドマップをインポートしました。\nノード数: ${importedNodes.length}`);
+      } catch (error) {
+        console.error('Import error:', error);
+        alert('ファイルの読み込みに失敗しました。正しいJSON形式のファイルを選択してください。');
+      }
+    };
+    
+    reader.readAsText(file);
+    
+    // ファイル入力をリセット
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }, []);
+
+  // インポートファイル選択をトリガー
+  const triggerImport = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
 
   // 編集中のノード幅変化を処理
   const handleEditingWidthChange = useCallback((nodeId: string, newContent: string) => {
@@ -876,9 +978,38 @@ export const AdvancedMindMap: React.FC = () => {
   return (
     <div className="w-full h-screen bg-gray-100 relative overflow-hidden">
       {/* 言語切り替え */}
-      <div className="absolute top-4 right-4 z-50">
+      <div className="absolute top-4 right-4 z-50 flex items-center space-x-3">
+        {/* インポート・エクスポートボタン */}
+        <div className="flex items-center space-x-2 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg border border-white/50 px-3 py-2">
+          <button
+            onClick={triggerImport}
+            className="flex items-center space-x-1 px-3 py-1.5 text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+            title="マインドマップをインポート"
+          >
+            <Upload className="w-4 h-4" />
+            <span>インポート</span>
+          </button>
+          <div className="w-px h-4 bg-gray-300"></div>
+          <button
+            onClick={exportMindMap}
+            className="flex items-center space-x-1 px-3 py-1.5 text-sm font-medium text-gray-700 hover:text-green-600 hover:bg-green-50 rounded-md transition-colors"
+            title="マインドマップをエクスポート"
+          >
+            <Download className="w-4 h-4" />
+            <span>エクスポート</span>
+          </button>
+        </div>
         <LanguageSwitcher variant="compact" />
       </div>
+
+      {/* 隠しファイル入力 */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json"
+        onChange={importMindMap}
+        className="hidden"
+      />
       
       <div
         ref={canvasRef}
@@ -1094,7 +1225,7 @@ export const AdvancedMindMap: React.FC = () => {
       
       {/* ナビゲーションモード表示 */}
       {navigationMode && (
-        <div className="absolute top-4 right-4 bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-xl shadow-xl border border-blue-500/20 backdrop-blur-sm">
+        <div className="absolute top-20 right-4 bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-xl shadow-xl border border-blue-500/20 backdrop-blur-sm">
           {/* ヘッダー */}
           <div className="px-4 py-3 border-b border-white/20">
             <div className="flex items-center space-x-3">
