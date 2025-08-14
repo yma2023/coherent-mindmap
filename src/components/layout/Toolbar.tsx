@@ -36,15 +36,6 @@ export const Toolbar: React.FC = () => {
       <div className="flex items-center justify-between">
         {/* Left Group */}
         <div className="flex items-center space-x-1">
-          <button 
-            onClick={handleBackToDashboard}
-            className="flex items-center space-x-2 px-3 py-2 text-slate-600 hover:text-slate-800 hover:bg-white/50 rounded-lg transition-colors text-sm font-semibold mr-2"
-            title="Back to Dashboard"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">Dashboard</span>
-          </button>
-          <div className="w-px h-6 bg-slate-300 mx-2" />
           <button className="p-2 text-slate-600 hover:text-slate-800 hover:bg-white/50 rounded-lg transition-colors">
             <Save className="w-4 h-4" />
           </button>
@@ -104,6 +95,15 @@ export const Toolbar: React.FC = () => {
           <button className="flex items-center space-x-2 px-3 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg transition-all duration-200 text-sm font-semibold shadow-md">
             <Users className="w-4 h-4" />
             <span>Share</span>
+          </button>
+          <div className="w-px h-6 bg-slate-300 mx-2" />
+          <button 
+            onClick={handleBackToDashboard}
+            className="flex items-center space-x-2 px-3 py-2 text-slate-600 hover:text-slate-800 hover:bg-white/50 rounded-lg transition-colors text-sm font-semibold"
+            title="Back to Dashboard"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span className="hidden sm:inline">Dashboard</span>
           </button>
         </div>
       </div>
