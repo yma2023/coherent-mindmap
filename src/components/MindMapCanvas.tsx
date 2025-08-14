@@ -814,7 +814,7 @@ export const MindMapCanvas: React.FC = () => {
         case 'ArrowRight':
           targetNodeId = findNearestNode(selectedNode, 'right');
           break;
-        case 'Enter':
+        case ' ':
           startNodeEditing(selectedNode.id);
           setNavigationMode(false);
           return;
@@ -836,13 +836,12 @@ export const MindMapCanvas: React.FC = () => {
             }
           }
           return;
-        case 'r':
-        case 'R':
+        case 'Tab':
+          e.preventDefault(); // デフォルトのTab動作を防ぐ
           createChildNode(selectedNode.id);
           setNavigationMode(false);
           return;
-        case 'd':
-        case 'D':
+        case 'Enter':
           if (selectedNode.parentId) {
             createSiblingNode(selectedNode.id);
             setNavigationMode(false);
@@ -1349,7 +1348,7 @@ export const MindMapCanvas: React.FC = () => {
                   <span className="text-white/90">ノード移動</span>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <kbd className="px-2 py-1 bg-white/20 rounded text-xs font-mono">Enter</kbd>
+                  <kbd className="px-2 py-1 bg-white/20 rounded text-xs font-mono">Space</kbd>
                   <span className="text-white/90">編集開始</span>
                 </div>
               </div>
@@ -1359,11 +1358,11 @@ export const MindMapCanvas: React.FC = () => {
               <div className="text-sm font-semibold text-green-200 uppercase tracking-wider">追加</div>
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div className="flex items-center space-x-2">
-                  <kbd className="px-2 py-1 bg-green-500/30 rounded text-xs font-mono">R</kbd>
+                  <kbd className="px-2 py-1 bg-green-500/30 rounded text-xs font-mono">Tab</kbd>
                   <span className="text-white/90">右に子ノード</span>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <kbd className="px-2 py-1 bg-green-500/30 rounded text-xs font-mono">D</kbd>
+                  <kbd className="px-2 py-1 bg-green-500/30 rounded text-xs font-mono">Enter</kbd>
                   <span className="text-white/90">下に兄弟ノード</span>
                 </div>
               </div>
