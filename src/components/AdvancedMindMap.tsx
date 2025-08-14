@@ -777,7 +777,7 @@ export const AdvancedMindMap: React.FC = () => {
                     <input
                       type="text"
                       defaultValue={node.content === 'New Node' ? '' : node.content}
-                      className={`bg-transparent border-b-2 border-blue-500 outline-none px-1 w-full ${
+                      className={`bg-transparent border-b-2 border-blue-500 outline-none px-1 w-full whitespace-nowrap overflow-hidden ${
                         !node.parentId ? 'text-2xl font-bold' : 'text-lg font-medium'
                       }`}
                       style={{
@@ -796,7 +796,7 @@ export const AdvancedMindMap: React.FC = () => {
                       }}
                     />
                   ) : (
-                    <span className={`px-1 py-1 rounded transition-colors block ${
+                    <span className={`px-1 py-1 rounded transition-colors block whitespace-nowrap overflow-hidden text-ellipsis ${
                       !node.parentId ? 'text-2xl font-bold' : 'text-lg font-medium'
                     }`}>
                       {node.content}
