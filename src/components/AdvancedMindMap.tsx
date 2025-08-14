@@ -38,6 +38,7 @@ interface ViewState {
 
 const NODE_SPACING_X = 200;
 const NODE_SPACING_Y = 80;
+const LEVEL_SPACING_X = 180; // レベル間の固定距離
 const MIN_SCALE = 0.5;
 const MAX_SCALE = 2.0;
 const EXPAND_BUTTON_SIZE = 20;
@@ -108,11 +109,14 @@ export const AdvancedMindMap: React.FC = () => {
   }, []);
 
   // 子ノードの位置を自動計算（バランス配置）
-  const calculateBalancedChildPositions = useCallback((parentNode: Node): { x: number; y: number }[] => {
+  const calculateBalancedChildPositions = useCallback((parentNode: Node, useFixedDistance = true): { x: number; y: number }[] => {
     const childCount = parentNode.children.length;
     if (childCount === 0) return [];
 
-    const baseX = parentNode.x + NODE_SPACING_X;
+    // 固定距離を使用する場合は、親ノードの幅に関係なく一定の距離を保つ
+    const baseX = useFixedDistance 
+      ? parentNode.x + LEVEL_SPACING_X 
+      : parentNode.x + NODE_SPACING_X;
     const positions: { x: number; y: number }[] = [];
 
     if (childCount === 1) {
@@ -157,9 +161,9 @@ export const AdvancedMindMap: React.FC = () => {
 
   // 子ノードの位置を計算（右方向）
   const calculateChildPosition = useCallback((parentNode: Node): { x: number; y: number } => {
-    const positions = calculateBalancedChildPositions(parentNode);
+    const positions = calculateBalancedChildPositions(parentNode, true);
     return positions[parentNode.children.length] || {
-      x: parentNode.x + NODE_SPACING_X,
+      x: parentNode.x + LEVEL_SPACING_X,
       y: parentNode.y,
     };
   }, [calculateBalancedChildPositions]);
@@ -167,7 +171,7 @@ export const AdvancedMindMap: React.FC = () => {
   // 子ノードの兄弟位置を計算（下方向）
   const calculateSiblingPosition = useCallback((parentNode: Node, siblingIndex: number): { x: number; y: number } => {
     return {
-      x: parentNode.x + NODE_SPACING_X,
+      x: parentNode.x + LEVEL_SPACING_X,
       y: parentNode.y + NODE_SPACING_Y * (siblingIndex + 1),
     };
   }, []);
@@ -182,7 +186,7 @@ export const AdvancedMindMap: React.FC = () => {
       ...parentNode,
       children: [...parentNode.children, nextNodeId.toString()]
     };
-    const newPositions = calculateBalancedChildPositions(updatedParent);
+    const newPositions = calculateBalancedChildPositions(updatedParent, true);
     const position = newPositions[parentNode.children.length];
     
     const newNode: Node = {
@@ -221,7 +225,7 @@ export const AdvancedMindMap: React.FC = () => {
     // 既存の子ノードとその子孫の位置を再バランス調整
     setTimeout(() => {
       const updatedParent = { ...parentNode, children: [...parentNode.children, nextNodeId.toString()] };
-      const allPositions = calculateBalancedChildPositions(updatedParent);
+      const allPositions = calculateBalancedChildPositions(updatedParent, true);
       
       setNodes(prev => prev.map(node => {
         const childIndex = parentNode.children.indexOf(node.id);
@@ -272,7 +276,7 @@ export const AdvancedMindMap: React.FC = () => {
       ...parentNode,
       children: newChildren
     };
-    const newPositions = calculateBalancedChildPositions(updatedParent);
+    const newPositions = calculateBalancedChildPositions(updatedParent, true);
     const position = newPositions[currentNodeIndex + 1];
     
     const newNode: Node = {
@@ -311,7 +315,7 @@ export const AdvancedMindMap: React.FC = () => {
     // 既存の兄弟ノードとその子孫の位置を再バランス調整
     setTimeout(() => {
       const updatedParent = { ...parentNode, children: newChildren };
-      const allPositions = calculateBalancedChildPositions(updatedParent);
+      const allPositions = calculateBalancedChildPositions(updatedParent, true);
       
       setNodes(prev => prev.map(n => {
         const childIndex = newChildren.indexOf(n.id);
@@ -410,7 +414,7 @@ export const AdvancedMindMap: React.FC = () => {
           // 削除後の子ノード配置を再計算
           const remainingChildren = parentNode.children.filter(childId => childId !== nodeId);
           const updatedParent = { ...parentNode, children: remainingChildren };
-          const newPositions = calculateBalancedChildPositions(updatedParent);
+          const newPositions = calculateBalancedChildPositions(updatedParent, true);
           
           setNodes(prev => prev.map(node => {
             const childIndex = remainingChildren.indexOf(node.id);
@@ -480,43 +484,15 @@ export const AdvancedMindMap: React.FC = () => {
       [nodeId]: newWidth
     }));
 
-    // 幅が変化した場合、子ノードの位置を即座に調整
-    if (Math.abs(newWidth - oldWidth) > 1) {
-      adjustChildNodesPosition(nodeId, oldWidth, newWidth);
-    }
+    // 固定距離レイアウトでは、親ノードの幅変化による子ノードの位置調整は不要
   }, [nodes, calculateNodeWidth]);
 
   // 子ノードの位置を調整する関数
   const adjustChildNodesPosition = useCallback((parentNodeId: string, oldWidth: number, newWidth: number) => {
-    const parentNode = nodes.find(n => n.id === parentNodeId);
-    if (!parentNode || parentNode.children.length === 0) return;
-
-    // 親ノードの右端の変化量を計算
-    const rightEdgeChange = newWidth - oldWidth;
-
-    // 子ノードとその子孫ノードすべての位置を調整
-    const adjustDescendants = (nodeId: string) => {
-      const node = nodes.find(n => n.id === nodeId);
-      if (!node) return;
-
-      // 現在のノードの位置を調整
-      setNodes(prev => prev.map(n => 
-        n.id === nodeId 
-          ? { ...n, x: n.x + rightEdgeChange }
-          : n
-      ));
-
-      // 子ノードも再帰的に調整
-      node.children.forEach(childId => {
-        adjustDescendants(childId);
-      });
-    };
-
-    // 全ての子ノードとその子孫を親ノードの右端変化分だけ移動
-    parentNode.children.forEach(childId => {
-      adjustDescendants(childId);
-    });
-  }, [nodes]);
+    // 固定距離レイアウトでは、親ノードの幅変化による子ノードの位置調整は不要
+    // 子ノードは常に親ノードから固定距離（LEVEL_SPACING_X）に配置される
+    return;
+  }, []);
 
   // ノード編集開始
   const startNodeEditing = useCallback((nodeId: string) => {
@@ -591,14 +567,14 @@ export const AdvancedMindMap: React.FC = () => {
   const getExpandButtonPosition = useCallback((node: Node) => {
     if (node.children.length === 0) return null;
     
-    const isRoot = !node.parentId;
-    const nodeWidth = node.width || calculateNodeWidth(node.content, isRoot);
+    // 固定距離の中間点に展開ボタンを配置
+    const buttonDistance = LEVEL_SPACING_X / 2;
     
     return {
-      x: node.x + nodeWidth + 20, // ノードの右側に20px離して配置
+      x: node.x + buttonDistance, // 親ノードと子ノードの中間点
       y: node.y,
     };
-  }, [calculateNodeWidth]);
+  }, []);
 
   // 展開ボタンを表示すべきかチェック
   const shouldShowExpandButton = useCallback((node: Node) => {
@@ -615,8 +591,8 @@ export const AdvancedMindMap: React.FC = () => {
         const expandButtonPos = getExpandButtonPosition(node);
         if (!expandButtonPos) return;
 
-        const nodeWidth = node.width || calculateNodeWidth(node.content, !node.parentId);
         const isRoot = !node.parentId;
+        const nodeWidth = node.width || calculateNodeWidth(node.content, isRoot);
         
         // 親ノード（矩形）の右端中央の座標を正確に計算
         const NODE_HEIGHT = 40; // ノードの高さ
@@ -661,7 +637,7 @@ export const AdvancedMindMap: React.FC = () => {
               });
             } else {
               // 複数の子ノードの場合は曲線
-              const controlX = expandButtonX + 40;
+              const controlX = expandButtonX + (LEVEL_SPACING_X / 4);
               const controlY = expandButtonY + (child.y - expandButtonY) * 0.2;
               newConnections.push({
                 id: `expand-${child.id}`,
