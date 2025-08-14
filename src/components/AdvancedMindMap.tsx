@@ -382,9 +382,8 @@ export const AdvancedMindMap: React.FC = () => {
     if (!node) return;
 
     const isRoot = !node.parentId;
-    const newWidth = calculateNodeWidth(newContent, isRoot);
     const oldWidth = node.width || calculateNodeWidth(node.content, isRoot);
-    const widthDifference = newWidth - oldWidth;
+    const newWidth = calculateNodeWidth(newContent, isRoot);
 
     // 編集中の幅を更新
     setEditingNodeWidth(prev => ({
@@ -393,37 +392,40 @@ export const AdvancedMindMap: React.FC = () => {
     }));
 
     // 幅が変化した場合、子ノードの位置を即座に調整
-    if (Math.abs(widthDifference) > 1) {
-      adjustChildNodesPosition(nodeId, widthDifference);
+    if (Math.abs(newWidth - oldWidth) > 1) {
+      adjustChildNodesPosition(nodeId, oldWidth, newWidth);
     }
   }, [nodes, calculateNodeWidth]);
 
   // 子ノードの位置を調整する関数
-  const adjustChildNodesPosition = useCallback((parentNodeId: string, widthDifference: number) => {
+  const adjustChildNodesPosition = useCallback((parentNodeId: string, oldWidth: number, newWidth: number) => {
     const parentNode = nodes.find(n => n.id === parentNodeId);
     if (!parentNode || parentNode.children.length === 0) return;
 
+    // 親ノードの右端の変化量を計算
+    const rightEdgeChange = newWidth - oldWidth;
+
     // 子ノードとその子孫ノードすべての位置を調整
-    const adjustDescendants = (nodeId: string, deltaX: number) => {
+    const adjustDescendants = (nodeId: string) => {
       const node = nodes.find(n => n.id === nodeId);
       if (!node) return;
 
       // 現在のノードの位置を調整
       setNodes(prev => prev.map(n => 
         n.id === nodeId 
-          ? { ...n, x: n.x + deltaX }
+          ? { ...n, x: n.x + rightEdgeChange }
           : n
       ));
 
       // 子ノードも再帰的に調整
       node.children.forEach(childId => {
-        adjustDescendants(childId, deltaX);
+        adjustDescendants(childId);
       });
     };
 
-    // 全ての子ノードとその子孫を右方向（または左方向）に移動
+    // 全ての子ノードとその子孫を親ノードの右端変化分だけ移動
     parentNode.children.forEach(childId => {
-      adjustDescendants(childId, widthDifference);
+      adjustDescendants(childId);
     });
   }, [nodes]);
 
