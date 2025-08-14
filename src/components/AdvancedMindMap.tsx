@@ -847,13 +847,34 @@ export const AdvancedMindMap: React.FC = () => {
           startNodeEditing(selectedNode.id);
           setNavigationMode(false);
           return;
+        case 'Delete':
+        case 'Backspace':
+          // DeleteキーまたはBackspaceキーでノードを削除
+          if (selectedNode.parentId) { // ルートノード以外のみ削除可能
+            // 削除前に次に選択するノードを決定
+            const nextNodeId = findNearestNode(selectedNode, 'up') || 
+                              findNearestNode(selectedNode, 'down') || 
+                              findNearestNode(selectedNode, 'left') || 
+                              findNearestNode(selectedNode, 'right') ||
+                              selectedNode.parentId; // 最後の手段として親ノードを選択
+            
+            deleteNode(selectedNode.id);
+            
+            // 削除後に次のノードを選択
+            if (nextNodeId) {
+              setTimeout(() => {
+                selectNode(nextNodeId);
+              }, 0);
+            }
+          }
+          return;
       }
       
       if (targetNodeId) {
         selectNode(targetNodeId);
       }
     }
-  }, [nodes, navigationMode, cancelEditing, selectNode, startNodeEditing, findNearestNode]);
+  }, [nodes, navigationMode, cancelEditing, selectNode, startNodeEditing, findNearestNode, deleteNode]);
   
   useEffect(() => {
     document.addEventListener('keydown', handleKeyDown);
@@ -1102,7 +1123,7 @@ export const AdvancedMindMap: React.FC = () => {
             <span className="text-sm font-medium">ナビゲーションモード</span>
           </div>
           <div className="text-xs mt-1 opacity-90">
-            ↑↓←→: 移動 | Enter: 編集 | ESC: 終了
+            ↑↓←→: 移動 | Enter: 編集 | Delete/BS: 削除 | ESC: 終了
           </div>
         </div>
       )}
