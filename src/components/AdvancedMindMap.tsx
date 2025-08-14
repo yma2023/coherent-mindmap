@@ -74,6 +74,8 @@ export const AdvancedMindMap: React.FC = () => {
     initialX: number;
     initialY: number;
   } | null>(null);
+  
+  const [navigationMode, setNavigationMode] = useState(false);
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const [nextNodeId, setNextNodeId] = useState(2);
@@ -754,9 +756,99 @@ export const AdvancedMindMap: React.FC = () => {
       const editingNode = nodes.find(n => n.isEditing);
       if (editingNode) {
         cancelEditing(editingNode.id);
+        return;
+      }
+      
+      // ナビゲーションモードを切り替え
+      setNavigationMode(prev => !prev);
+      
+      // ナビゲーションモードに入る時、選択されたノードがない場合は最初のノードを選択
+      if (!navigationMode) {
+        const selectedNode = nodes.find(n => n.isSelected);
+        if (!selectedNode && nodes.length > 0) {
+          selectNode(nodes[0].id);
+        }
+      }
+    }
+    
+    // ナビゲーションモード時のカーソルキー操作
+    if (navigationMode && !nodes.some(n => n.isEditing)) {
+      const selectedNode = nodes.find(n => n.isSelected);
+      if (!selectedNode) return;
+      
+      e.preventDefault();
+      
+      let targetNodeId: string | null = null;
+      
+      switch (e.key) {
+        case 'ArrowUp':
+          targetNodeId = findNearestNode(selectedNode, 'up');
+          break;
+        case 'ArrowDown':
+          targetNodeId = findNearestNode(selectedNode, 'down');
+          break;
+        case 'ArrowLeft':
+          targetNodeId = findNearestNode(selectedNode, 'left');
+          break;
+        case 'ArrowRight':
+          targetNodeId = findNearestNode(selectedNode, 'right');
+          break;
+        case 'Enter':
+          // Enterキーで編集モードに入る
+          startNodeEditing(selectedNode.id);
+          setNavigationMode(false);
+          break;
+      }
+      
+      if (targetNodeId) {
+        selectNode(targetNodeId);
       }
     }
   }, [nodes, cancelEditing]);
+  
+  // 指定方向の最も近いノードを見つける関数
+  const findNearestNode = useCallback((currentNode: Node, direction: 'up' | 'down' | 'left' | 'right'): string | null => {
+    const visibleNodes = getVisibleNodes().filter(n => n.id !== currentNode.id);
+    if (visibleNodes.length === 0) return null;
+    
+    let candidates: Node[] = [];
+    
+    switch (direction) {
+      case 'up':
+        candidates = visibleNodes.filter(n => n.y < currentNode.y);
+        break;
+      case 'down':
+        candidates = visibleNodes.filter(n => n.y > currentNode.y);
+        break;
+      case 'left':
+        candidates = visibleNodes.filter(n => n.x < currentNode.x);
+        break;
+      case 'right':
+        candidates = visibleNodes.filter(n => n.x > currentNode.x);
+        break;
+    }
+    
+    if (candidates.length === 0) return null;
+    
+    // 最も近いノードを見つける
+    let nearestNode = candidates[0];
+    let minDistance = getDistance(currentNode, nearestNode);
+    
+    for (let i = 1; i < candidates.length; i++) {
+      const distance = getDistance(currentNode, candidates[i]);
+      if (distance < minDistance) {
+        minDistance = distance;
+        nearestNode = candidates[i];
+      }
+    }
+    
+    return nearestNode.id;
+  }, [getVisibleNodes]);
+  
+  // 2つのノード間の距離を計算
+  const getDistance = useCallback((node1: Node, node2: Node): number => {
+    return Math.sqrt(Math.pow(node2.x - node1.x, 2) + Math.pow(node2.y - node1.y, 2));
+  }, []);
 
   useEffect(() => {
     document.addEventListener('keydown', handleKeyDown);
@@ -827,7 +919,9 @@ export const AdvancedMindMap: React.FC = () => {
               <div
                 className={`absolute transition-all duration-300 group cursor-pointer ${
                   node.isSelected 
-                    ? 'text-blue-600' 
+                    ? navigationMode 
+                      ? 'text-blue-600 bg-blue-100 rounded-lg' 
+                      : 'text-blue-600'
                     : 'text-gray-800 hover:text-blue-600'
                 }`}
                 style={{
@@ -858,7 +952,11 @@ export const AdvancedMindMap: React.FC = () => {
                 >
                   {/* 選択時の枠線 */}
                   {node.isSelected && (
-                    <div className="absolute -inset-2 border-2 border-blue-500 rounded-lg bg-blue-50/20 pointer-events-none" />
+                    <div className={`absolute -inset-2 border-2 rounded-lg pointer-events-none ${
+                      navigationMode 
+                        ? 'border-blue-600 bg-blue-100/50 shadow-lg' 
+                        : 'border-blue-500 bg-blue-50/20'
+                    }`} />
                   )}
 
                   {/* ノードテキスト */}
@@ -985,10 +1083,24 @@ export const AdvancedMindMap: React.FC = () => {
           <p>• ホバーで緑の+ボタン: 兄弟ノード追加（下方向）</p>
           <p>• ⚪︎ボタン: 子ノードの表示・非表示</p>
           <p>• 選択時に削除ボタン表示</p>
-          <p>• ESCキー: 編集キャンセル</p>
+          <p>• ESCキー: 編集キャンセル / ナビゲーションモード切り替え</p>
+          <p>• ナビゲーションモード時: ↑↓←→でノード移動、Enterで編集</p>
           <p>• 空ノードは自動削除</p>
         </div>
       </div>
+      
+      {/* ナビゲーションモード表示 */}
+      {navigationMode && (
+        <div className="absolute top-4 right-4 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-md">
+          <div className="flex items-center space-x-2">
+            <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+            <span className="text-sm font-medium">ナビゲーションモード</span>
+          </div>
+          <div className="text-xs mt-1 opacity-90">
+            ↑↓←→: 移動 | Enter: 編集 | ESC: 終了
+          </div>
+        </div>
+      )}
 
       {/* ズーム表示 */}
       <div className="absolute bottom-4 right-4 bg-white px-3 py-2 rounded-lg shadow-md">
