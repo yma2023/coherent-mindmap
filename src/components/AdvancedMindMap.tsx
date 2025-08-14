@@ -257,13 +257,21 @@ export const AdvancedMindMap: React.FC = () => {
     const parentNode = nodes.find(n => n.id === node.parentId);
     if (!parentNode) return;
 
+    // 現在のノードの親の子リスト内での位置を取得
+    const currentNodeIndex = parentNode.children.indexOf(nodeId);
+    if (currentNodeIndex === -1) return;
+
+    // 新しいノードを現在のノードの直後に挿入
+    const newChildren = [...parentNode.children];
+    newChildren.splice(currentNodeIndex + 1, 0, nextNodeId.toString());
+
     // 新しい兄弟ノードを含めた全体の位置を計算
     const updatedParent = {
       ...parentNode,
-      children: [...parentNode.children, nextNodeId.toString()]
+      children: newChildren
     };
     const newPositions = calculateBalancedChildPositions(updatedParent);
-    const position = newPositions[parentNode.children.length];
+    const position = newPositions[currentNodeIndex + 1];
     
     const newNode: Node = {
       id: nextNodeId.toString(),
@@ -291,7 +299,7 @@ export const AdvancedMindMap: React.FC = () => {
       if (parentIndex !== -1) {
         updated[parentIndex] = {
           ...updated[parentIndex],
-          children: [...updated[parentIndex].children, newNode.id],
+          children: newChildren,
         };
       }
       
@@ -300,11 +308,11 @@ export const AdvancedMindMap: React.FC = () => {
 
     // 既存の兄弟ノードとその子孫の位置を再バランス調整
     setTimeout(() => {
-      const updatedParent = { ...parentNode, children: [...parentNode.children, nextNodeId.toString()] };
+      const updatedParent = { ...parentNode, children: newChildren };
       const allPositions = calculateBalancedChildPositions(updatedParent);
       
       setNodes(prev => prev.map(n => {
-        const childIndex = parentNode.children.indexOf(n.id);
+        const childIndex = newChildren.indexOf(n.id);
         if (childIndex !== -1 && allPositions[childIndex]) {
           const oldY = n.y;
           const newY = allPositions[childIndex].y;
