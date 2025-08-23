@@ -1,15 +1,9 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef} from 'react';
 import { Node, Connection, ViewState, ExportData } from './types';
 import { 
   NODE_SPACING_X, 
   NODE_SPACING_Y, 
-  LEVEL_SPACING_X, 
-  MIN_SCALE, 
-  MAX_SCALE,
-  EXPAND_BUTTON_SIZE,
   COLLISION_DETECTION_BUFFER,
-  PARENT_SPACING_INCREMENT,
-  MIN_PARENT_SPACING,
 } from './constants';
 
 export const useMindMapState = () => {
@@ -80,11 +74,6 @@ export const useMindMapState = () => {
 export const useMindMapLogic = (
   nodes: Node[],
   setNodes: React.Dispatch<React.SetStateAction<Node[]>>,
-  nextNodeId: number,
-  setNextNodeId: React.Dispatch<React.SetStateAction<number>>,
-  editingContent: { [nodeId: string]: string },
-  setEditingContent: React.Dispatch<React.SetStateAction<{ [nodeId: string]: string }>>,
-  setConnections: React.Dispatch<React.SetStateAction<Connection[]>>,
   calculateNodeWidth: (content: string, isRoot?: boolean) => number
 ) => {
   const textMeasureRef = useRef<HTMLSpanElement>(null);
@@ -139,6 +128,35 @@ export const useMindMapLogic = (
       return node;
     }));
   }, [getDescendants, setNodes]);
+
+  const detectGlobalYCollisions = useCallback(() => {
+    const allNodes = nodes.filter(n => !n.isCollapsed);
+    const NODE_HEIGHT = 40;
+    const collisions: { node1: Node; node2: Node; yOverlap: number }[] = [];
+
+    for (let i = 0; i < allNodes.length; i++) {
+      for (let j = i + 1; j < allNodes.length; j++) {
+        const node1 = allNodes[i];
+        const node2 = allNodes[j];
+        
+        // Only check nodes at similar X positions (same hierarchy level)
+        const xDiff = Math.abs(node1.x - node2.x);
+        if (xDiff < 150) {
+          const yOverlap = Math.max(0, 
+            Math.min(node1.y + NODE_HEIGHT, node2.y + NODE_HEIGHT) - 
+            Math.max(node1.y, node2.y)
+          );
+          
+          if (yOverlap > 0) {
+            collisions.push({ node1, node2, yOverlap });
+          }
+        }
+      }
+    }
+    
+    return collisions;
+  }, [nodes]);
+
 
   const detectAndResolveCollisions = useCallback(() => {
     const rootNodes = nodes.filter(n => !n.parentId).sort((a, b) => a.y - b.y);
@@ -416,18 +434,348 @@ export const useMindMapLogic = (
     }));
   }, [nodes, setNodes]);
 
+  const calculateSubtreeBounds = useCallback((nodeId: string): { minY: number; maxY: number; height: number } => {
+    const getAllDescendants = (id: string): Node[] => {
+      const node = nodes.find(n => n.id === id);
+      if (!node) return [];
+      
+      let descendants = [node];
+      node.children.forEach(childId => {
+        descendants = descendants.concat(getAllDescendants(childId));
+      });
+      return descendants;
+    };
+
+    const subtreeNodes = getAllDescendants(nodeId);
+    if (subtreeNodes.length === 0) return { minY: 0, maxY: 40, height: 40 };
+
+    const minY = Math.min(...subtreeNodes.map(n => n.y));
+    const maxY = Math.max(...subtreeNodes.map(n => n.y + 40)); // NODE_HEIGHT = 40
+    
+    return { minY, maxY, height: maxY - minY };
+  }, [nodes]);
+
+  const calculateChildrenCenter = useCallback((parentNodeId: string): number | null => {
+    const parentNode = nodes.find(n => n.id === parentNodeId);
+    if (!parentNode || parentNode.children.length === 0) return null;
+
+    const childNodes = parentNode.children
+      .map(childId => nodes.find(n => n.id === childId))
+      .filter((node): node is Node => !!node);
+
+    if (childNodes.length === 0) return null;
+
+    // Calculate the bounds of the entire children subtree
+    let minY = Infinity;
+    let maxY = -Infinity;
+    
+    childNodes.forEach(child => {
+      const subtreeBounds = calculateSubtreeBounds(child.id);
+      minY = Math.min(minY, subtreeBounds.minY);
+      maxY = Math.max(maxY, subtreeBounds.maxY);
+    });
+    
+    return (minY + maxY) / 2;
+  }, [nodes, calculateSubtreeBounds]);
+
+  const adjustParentToChildrenCenter = useCallback((parentNodeId: string): number => {
+    const parentNode = nodes.find(n => n.id === parentNodeId);
+    if (!parentNode || parentNode.children.length === 0) return 0;
+
+    const childrenCenter = calculateChildrenCenter(parentNodeId);
+    if (childrenCenter === null) return 0;
+
+    const currentParentCenter = parentNode.y + 20; // NODE_HEIGHT / 2
+    const deltaY = childrenCenter - currentParentCenter;
+
+    if (Math.abs(deltaY) < 5) return 0; // No significant change needed
+
+    // Move the parent node
+    setNodes(prev => prev.map(node => 
+      node.id === parentNodeId 
+        ? { ...node, y: node.y + deltaY }
+        : node
+    ));
+
+    return deltaY;
+  }, [nodes, calculateChildrenCenter, setNodes]);
+
+  const adjustSiblingSpacing = useCallback((parentNodeId: string, parentDeltaY: number) => {
+    const grandParentNode = nodes.find(n => n.children.includes(parentNodeId));
+    if (!grandParentNode || grandParentNode.children.length <= 1) return;
+
+    const siblings = grandParentNode.children
+      .map(childId => nodes.find(n => n.id === childId))
+      .filter((node): node is Node => !!node)
+      .sort((a, b) => a.y - b.y);
+
+    const movedParentIndex = siblings.findIndex(n => n.id === parentNodeId);
+    if (movedParentIndex === -1) return;
+
+    const BASE_SPACING_BUFFER = 60; // Increased from 40 for better separation
+    
+    // Calculate subtree bounds for all siblings
+    const siblingBounds = siblings.map(sibling => ({
+      id: sibling.id,
+      node: sibling,
+      bounds: calculateSubtreeBounds(sibling.id)
+    }));
+
+    // Calculate the total expanded height needed for all siblings
+    const totalRequiredHeight = siblingBounds.reduce((total, siblingBound, index) => {
+      const spacing = index > 0 ? BASE_SPACING_BUFFER : 0;
+      return total + spacing + siblingBound.bounds.height;
+    }, 0);
+
+    // Calculate dynamic spacing based on available space and subtree complexity
+    const getAdaptiveSpacing = (currentBounds: any, nextBounds: any) => {
+      const currentComplexity = Math.min(currentBounds.height / 40, 10); // Max 10 levels
+      const nextComplexity = Math.min(nextBounds.height / 40, 10);
+      const complexityFactor = Math.max(currentComplexity, nextComplexity);
+      
+      // Exponential spacing increase for deeper subtrees
+      return BASE_SPACING_BUFFER + (complexityFactor * 15);
+    };
+
+    const newPositions: { id: string; y: number }[] = [];
+    
+    // Start positioning from the moved parent (which is already positioned correctly)
+    const anchorIndex = movedParentIndex;
+    const anchorY = siblings[anchorIndex].y;
+    newPositions.push({ id: siblings[anchorIndex].id, y: anchorY });
+
+    // Position siblings above the anchor with enhanced spacing
+    let currentY = anchorY;
+    for (let i = anchorIndex - 1; i >= 0; i--) {
+      const currentSubtreeBounds = siblingBounds[i].bounds;
+      const belowSubtreeBounds = siblingBounds[i + 1].bounds;
+      
+      // Use adaptive spacing that considers subtree complexity
+      const adaptiveSpacing = getAdaptiveSpacing(currentSubtreeBounds, belowSubtreeBounds);
+      const requiredSpacing = (currentSubtreeBounds.height / 2) + (belowSubtreeBounds.height / 2) + adaptiveSpacing;
+      
+      currentY = currentY - requiredSpacing;
+      newPositions.push({ id: siblings[i].id, y: currentY });
+    }
+
+    // Position siblings below the anchor with enhanced spacing
+    currentY = anchorY;
+    for (let i = anchorIndex + 1; i < siblings.length; i++) {
+      const currentSubtreeBounds = siblingBounds[i].bounds;
+      const aboveSubtreeBounds = siblingBounds[i - 1].bounds;
+      
+      // Use adaptive spacing that considers subtree complexity
+      const adaptiveSpacing = getAdaptiveSpacing(currentSubtreeBounds, aboveSubtreeBounds);
+      const requiredSpacing = (currentSubtreeBounds.height / 2) + (aboveSubtreeBounds.height / 2) + adaptiveSpacing;
+      
+      currentY = currentY + requiredSpacing;
+      newPositions.push({ id: siblings[i].id, y: currentY });
+    }
+
+    // Apply the new positions with improved collision detection
+    setNodes(prev => prev.map(node => {
+      const newPos = newPositions.find(p => p.id === node.id);
+      if (newPos && Math.abs(newPos.y - node.y) > 3) { // Reduced threshold for more responsive updates
+        const deltaY = newPos.y - node.y;
+        // Also move all descendants of this sibling
+        setTimeout(() => moveDescendants(node.id, 0, deltaY), 0);
+        return { ...node, y: newPos.y };
+      }
+      return node;
+    }));
+  }, [nodes, setNodes, moveDescendants, calculateSubtreeBounds]);
+
+  const triggerParentHierarchyAdjustment = useCallback((nodeId: string) => {
+    let currentNode = nodes.find(n => n.id === nodeId);
+    const adjustedParents = new Set<string>();
+    
+    while (currentNode?.parentId && !adjustedParents.has(currentNode.parentId)) {
+      const parentId = currentNode.parentId;
+      const parent = nodes.find(n => n.id === parentId);
+      if (parent) {
+        adjustedParents.add(parent.id);
+        adjustParentToChildrenCenter(parent.id);
+        adjustSiblingSpacing(parent.id, 0);
+        currentNode = parent;
+      } else {
+        break;
+      }
+    }
+  }, [nodes, adjustParentToChildrenCenter, adjustSiblingSpacing]);
+
+  const recursiveParentAdjustment = useCallback((nodeId: string, depth: number = 0) => {
+    if (depth > 10) return; // Prevent infinite recursion
+    
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node || !node.parentId) return;
+
+    // Adjust the immediate parent to center on its children
+    const parentDeltaY = adjustParentToChildrenCenter(node.parentId);
+    
+    // Always check sibling spacing when a parent adjustment occurs, even for small movements
+    if (Math.abs(parentDeltaY) > 1) { // Reduced threshold for more responsive adjustments
+      // If parent moved, adjust sibling spacing at this level
+      adjustSiblingSpacing(node.parentId, parentDeltaY);
+      
+      // Propagate the adjustment up the hierarchy with optimized delays
+      setTimeout(() => {
+        recursiveParentAdjustment(node.parentId!, depth + 1);
+      }, 50 + (depth * 20)); // Reduced base delay for faster propagation
+    } else {
+      // Even if parent didn't move significantly, check if siblings need spacing adjustment
+      // This handles cases where children expanded but parent is already well-positioned
+      const parentNode = nodes.find(n => n.id === node.parentId);
+      if (parentNode && parentNode.parentId) {
+        const grandParentNode = nodes.find(n => n.id === parentNode.parentId);
+        if (grandParentNode && grandParentNode.children.length > 1) {
+          // Check if any sibling has subtrees that might be overlapping
+          const siblings = grandParentNode.children
+            .map(childId => nodes.find(n => n.id === childId))
+            .filter((n): n is Node => !!n);
+          
+          if (siblings.length > 1) {
+            const siblingBounds = siblings.map(sibling => ({
+              id: sibling.id,
+              bounds: calculateSubtreeBounds(sibling.id)
+            }));
+            
+            // Check for any overlaps between sibling subtrees
+            let hasOverlap = false;
+            for (let i = 0; i < siblingBounds.length - 1; i++) {
+              const current = siblingBounds[i].bounds;
+              const next = siblingBounds[i + 1].bounds;
+              if (current.maxY + 10 > next.minY) { // 10px minimum gap
+                hasOverlap = true;
+                break;
+              }
+            }
+            
+            if (hasOverlap) {
+              adjustSiblingSpacing(node.parentId, 0); // Force spacing adjustment
+              setTimeout(() => {
+                recursiveParentAdjustment(node.parentId!, depth + 1);
+              }, 50 + (depth * 20));
+            }
+          }
+        }
+      }
+    }
+  }, [nodes, adjustParentToChildrenCenter, adjustSiblingSpacing, calculateSubtreeBounds]);
+
+  const detectAndAdjustParentLevelSpacing = useCallback(() => {
+    const crossGroupCollisions = detectGlobalYCollisions().filter(({ node1, node2 }) => {
+      // Only detect collisions between nodes from different root groups
+      const getRootParent = (nodeId: string): string => {
+        let current = nodes.find(n => n.id === nodeId);
+        while (current?.parentId) {
+          current = nodes.find(n => n.id === current!.parentId);
+        }
+        return current?.id || nodeId;
+      };
+      
+      return getRootParent(node1.id) !== getRootParent(node2.id);
+    });
+
+    if (crossGroupCollisions.length === 0) return;
+
+    // Group collisions by their root parents
+    const rootParentCollisions = new Map<string, { conflicts: string[], minMoveDistance: number }>();
+    
+    crossGroupCollisions.forEach(({ node1, node2, yOverlap }) => {
+      const getRootParent = (nodeId: string): string => {
+        let current = nodes.find(n => n.id === nodeId);
+        while (current?.parentId) {
+          current = nodes.find(n => n.id === current!.parentId);
+        }
+        return current?.id || nodeId;
+      };
+      
+      const root1 = getRootParent(node1.id);
+      const root2 = getRootParent(node2.id);
+      const lowerNode = node1.y > node2.y ? node1 : node2;
+      const lowerRoot = getRootParent(lowerNode.id);
+      const moveDistance = yOverlap + COLLISION_DETECTION_BUFFER;
+      
+      if (!rootParentCollisions.has(lowerRoot)) {
+        rootParentCollisions.set(lowerRoot, { conflicts: [], minMoveDistance: 0 });
+      }
+      
+      const existing = rootParentCollisions.get(lowerRoot)!;
+      existing.conflicts.push(lowerRoot === root1 ? root2 : root1);
+      existing.minMoveDistance = Math.max(existing.minMoveDistance, moveDistance);
+    });
+
+    // Find the common grandparent level where spacing needs adjustment
+    rootParentCollisions.forEach(({ conflicts, minMoveDistance }, lowerRootId) => {
+      const lowerRoot = nodes.find(n => n.id === lowerRootId);
+      if (!lowerRoot) return;
+
+      // Instead of moving the entire group, adjust parent-level spacing
+      // Find if these root nodes are siblings under a common parent
+      const rootNodes = nodes.filter(n => !n.parentId);
+      
+      if (rootNodes.length > 1) {
+        // Sort root nodes by Y position
+        const sortedRoots = rootNodes.sort((a, b) => a.y - b.y);
+        const lowerRootIndex = sortedRoots.findIndex(n => n.id === lowerRootId);
+        
+        if (lowerRootIndex > 0) {
+          // Calculate required spacing between root groups
+          const currentRoot = sortedRoots[lowerRootIndex];
+          const aboveRoots = sortedRoots.slice(0, lowerRootIndex);
+          
+          // Move the current root and all roots below it
+          const moveDistance = minMoveDistance;
+          for (let i = lowerRootIndex; i < sortedRoots.length; i++) {
+            moveNodeGroup(sortedRoots[i].id, 0, moveDistance);
+          }
+        }
+      }
+    });
+  }, [detectGlobalYCollisions, nodes, moveNodeGroup]);
+
+  const triggerFullLayoutAdjustment = useCallback((fromNodeId: string) => {
+    setTimeout(() => {
+      recursiveParentAdjustment(fromNodeId);
+      
+      setTimeout(() => {
+        detectAndResolveCollisions();
+        
+        setTimeout(() => {
+          detectAndAdjustParentLevelSpacing();
+          
+          setTimeout(() => {
+            const node = nodes.find(n => n.id === fromNodeId);
+            if (node && node.parentId) {
+              recursiveParentAdjustment(fromNodeId, 0);
+            }
+          }, 100);
+        }, 200);
+      }, 400);
+    }, 100);
+  }, [recursiveParentAdjustment, detectAndResolveCollisions, detectAndAdjustParentLevelSpacing, nodes]);
+
   return {
     textMeasureRef,
     measureTextWidth,
     getDescendants,
     moveNodeGroup,
     detectAndResolveCollisions,
+    detectGlobalYCollisions,
+    detectAndAdjustParentLevelSpacing,
+    triggerParentHierarchyAdjustment,
     getOccupiedYRanges,
     findClearYSpace,
     calculateBalancedChildPositions,
     moveDescendantsVertically,
     adjustChildPositionsAfterParentChange,
     moveDescendants,
+    calculateSubtreeBounds,
+    calculateChildrenCenter,
+    adjustParentToChildrenCenter,
+    adjustSiblingSpacing,
+    recursiveParentAdjustment,
+    triggerFullLayoutAdjustment,
   };
 };
 
@@ -442,7 +790,9 @@ export const useMindMapActions = (
   calculateBalancedChildPositions: (parentNode: Node, useFixedDistance?: boolean) => { x: number; y: number }[],
   moveDescendantsVertically: (parentNodeId: string, deltaY: number) => void,
   detectAndResolveCollisions: () => void,
-  adjustChildPositionsAfterParentChange: (parentId: string) => void
+  adjustChildPositionsAfterParentChange: (parentId: string) => void,
+  recursiveParentAdjustment: (nodeId: string) => void,
+  triggerFullLayoutAdjustment: (fromNodeId: string) => void
 ) => {
   const updateNodeWidth = useCallback((nodeId: string, content: string) => {
     const node = nodes.find(n => n.id === nodeId);
@@ -539,7 +889,9 @@ detectAndResolveCollisions, setNodes]);
         return n;
       }));
               
-      setTimeout(detectAndResolveCollisions, 150);
+      setTimeout(() => {
+        triggerFullLayoutAdjustment(newNode.id);
+      }, 150);
     }, 0);
 
     setNextNodeId(prev => prev + 1);
@@ -630,7 +982,9 @@ detectAndResolveCollisions, setNodes]);
           return node;
         }));
                   
-        setTimeout(detectAndResolveCollisions, 150);
+        setTimeout(() => {
+          triggerFullLayoutAdjustment(newNode.id);
+        }, 150);
       }, 0);
 
          setNextNodeId(prev => prev + 1);
@@ -894,14 +1248,11 @@ export const useMindMapUtils = (
   
         for (let i = 0; i < siblings.length; i++) {
           const child = siblings[i];
-          const childIsRoot = !child.parentId;
-          const childWidth = child.width || calculateNodeWidth(child.content, childIsRoot);
   
           const childLeftCenterX = child.x;
           const childLeftCenterY = child.y + NODE_HEIGHT / 2;
   
           const yDiff = childLeftCenterY - parentRightCenterY;
-          const xDiff = childLeftCenterX - parentRightCenterX;
   
           // 水平判定：ほぼ同じ高さなら直線
           if (Math.abs(yDiff) < 5) {

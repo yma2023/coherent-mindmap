@@ -78,22 +78,23 @@ export const MindMapCanvas: React.FC = () => {
     getDescendants,
     moveNodeGroup,
     detectAndResolveCollisions,
+    detectGlobalYCollisions,
+    detectAndAdjustParentLevelSpacing,
+    triggerParentHierarchyAdjustment,
     getOccupiedYRanges,
     findClearYSpace,
     calculateBalancedChildPositions,
-    calculateOptimalChildSpacing,
     moveDescendantsVertically,
     adjustChildPositionsAfterParentChange,
     moveDescendants,
-    adjustLayoutRealTime,
+    calculateChildrenCenter,
+    adjustParentToChildrenCenter,
+    adjustSiblingSpacing,
+    recursiveParentAdjustment,
+    triggerFullLayoutAdjustment,
   } = useMindMapLogic(
     nodes,
     setNodes,
-    nextNodeId,
-    setNextNodeId,
-    editingContent,
-    setEditingContent,
-    setConnections,
     calculateNodeWidth
   );
 
@@ -120,7 +121,8 @@ export const MindMapCanvas: React.FC = () => {
     moveDescendantsVertically,
     detectAndResolveCollisions,
     adjustChildPositionsAfterParentChange,
-    adjustLayoutRealTime
+    recursiveParentAdjustment,
+    triggerFullLayoutAdjustment
   );
 
   const {
