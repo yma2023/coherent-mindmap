@@ -1,0 +1,1836 @@
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { Node, Connection, ViewState, ExportData } from './types';
+import { 
+  NODE_SPACING_X, 
+  NODE_SPACING_Y, 
+  LEVEL_SPACING_X, 
+  MIN_SCALE, 
+  MAX_SCALE,
+  EXPAND_BUTTON_SIZE,
+  COLLISION_DETECTION_BUFFER,
+  PARENT_SPACING_INCREMENT,
+  MIN_PARENT_SPACING
+} from './constants';
+
+/**
+ * マインドマップの全ての状態を管理するカスタムフック.
+ * これにより、状態ロジックがコンポーネントから分離される.
+ */
+export const useMindMapState = () => {
+  // 全てのノードの配列。これがマインドマップの基本的なデータ構造となる.
+  const [nodes, setNodes] = useState<Node[]>([
+    {
+      id: '1', // ユニークなID
+      x: 200, // X座標
+      y: 300, // Y座標
+      content: 'メインアイデア', // ノードに表示されるテキスト
+      children: [], // 子ノードのIDの配列
+      isEditing: false, // 編集モードかどうか
+      isSelected: false, // 選択されているかどうか
+      isCollapsed: false, // 子ノードが折りたたまれているか
+      level: 0, // 階層レベル (ルートは0)
+      width: 0, // ノードの幅（テキストに応じて動的に計算）
+    },
+  ]);
+  
+  // ノード間をつなぐ線の情報.
+  const [connections, setConnections] = useState<Connection[]>([]);
+  // キャンバスの表示状態（スケール、オフセット）.
+  const [viewState, setViewState] = useState<ViewState>({
+    scale: 1,
+    offsetX: 0,
+    offsetY: 0,
+  });
+  
+  // ドラッグ操作の状態を管理.
+  const [dragState, setDragState] = useState<{
+    isDragging: boolean; // ドラッグ中か
+    dragType: 'node' | 'canvas'; // 何をドラッグしているか
+    nodeId?: string; // ドラッグ中のノードID
+    startX: number; // ドラッグ開始時のマウスX座標
+    startY: number; // ドラッグ開始時のマウスY座標
+    initialX: number; // ドラッグ開始時の要素のX座標
+    initialY: number; // ドラッグ開始時の要素のY座標
+  } | null>(null);
+  
+  // キーボードでのノード間移動を行うナビゲーションモード.
+  const [navigationMode, setNavigationMode] = useState(false);
+  // 次に作成するノードのためのID. インクリメントして使用.
+  const [nextNodeId, setNextNodeId] = useState(2);
+  // 編集中のノードのコンテンツを一時的に保持するオブジェクト.
+  const [editingContent, setEditingContent] = useState<{ [nodeId: string]: string }>({});
+  
+  // AIコマンド入力欄の表示状態.
+  const [showAICommand, setShowAICommand] = useState(false);
+  // AIに送信するプロンプト.
+  const [aiPrompt, setAIPrompt] = useState('');
+  // サイドバーの表示状態.
+  const [sidebarVisible, setSidebarVisible] = useState(true);
+
+  // 管理している全ての状態とセッターを返す.
+  return {
+    nodes,
+    setNodes,
+    connections,
+    setConnections,
+    viewState,
+    setViewState,
+    dragState,
+    setDragState,
+    navigationMode,
+    setNavigationMode,
+    nextNodeId,
+    setNextNodeId,
+    editingContent,
+    setEditingContent,
+    showAICommand,
+    setShowAICommand,
+    aiPrompt,
+    setAIPrompt,
+    sidebarVisible,
+    setSidebarVisible,
+  };
+};
+
+/**
+ * マインドマップのコアロジック（レイアウト計算、衝突検出など）を管理するカスタムフック.
+ */
+export const useMindMapLogic = (
+  nodes: Node[],
+  setNodes: React.Dispatch<React.SetStateAction<Node[]>>,
+  nextNodeId: number,
+  setNextNodeId: React.Dispatch<React.SetStateAction<number>>,
+  editingContent: { [nodeId: string]: string },
+  setEditingContent: React.Dispatch<React.SetStateAction<{ [nodeId: string]: string }>>,
+  setConnections: React.Dispatch<React.SetStateAction<Connection[]>>,
+  calculateNodeWidth: (content: string, isRoot?: boolean) => number
+) => {
+  // テキストの幅を測定するための非表示要素への参照.
+  const textMeasureRef = useRef<HTMLSpanElement>(null);
+
+  /**
+   * 与えられたテキストの描画幅を計算する.
+   * isRootフラグでルートノードかどうかのスタイルを適用.
+   */
+  const measureTextWidth = useCallback((text: string, isRoot = false) => {
+    if (!textMeasureRef.current) return 0;
+    
+    const measureElement = textMeasureRef.current;
+    measureElement.style.fontSize = isRoot ? '24px' : '18px';
+    measureElement.style.fontWeight = isRoot ? 'bold' : 'medium';
+    // テキストが空でも最小幅を確保するために 'A' を使う.
+    measureElement.textContent = text || 'A';
+    
+    return measureElement.offsetWidth;
+  }, []);
+
+  /**
+   * 指定されたノードの全ての子孫ノードを再帰的に取得する.
+   */
+  const getDescendants = useCallback((nodeId: string): Node[] => {
+    const descendants: Node[] = [];
+    const visited = new Set<string>(); // 無限ループを避けるための訪問済みセット
+
+    const traverse = (currentNodeId: string) => {
+      if (visited.has(currentNodeId)) return;
+      visited.add(currentNodeId);
+
+      const currentNode = nodes.find(n => n.id === currentNodeId);
+      if (!currentNode) return;
+
+      currentNode.children.forEach(childId => {
+        const childNode = nodes.find(n => n.id === childId);
+        if (childNode) {
+          descendants.push(childNode);
+          traverse(childId); // 再帰的に子孫を辿る
+        }
+      });
+    };
+
+    traverse(nodeId);
+    return descendants;
+  }, [nodes]);
+
+  /**
+   * 指定されたルートノードとその全ての子孫をまとめて移動させる.
+   */
+  const moveNodeGroup = useCallback((rootNodeId: string, deltaX: number, deltaY: number) => {
+    const descendants = getDescendants(rootNodeId);
+    const affectedNodeIds = [rootNodeId, ...descendants.map(n => n.id)];
+
+    setNodes(prev => prev.map(node => {
+      if (affectedNodeIds.includes(node.id)) {
+        return {
+          ...node,
+          x: node.x + deltaX,
+          y: node.y + deltaY
+        };
+      }
+      return node;
+    }));
+  }, [getDescendants, setNodes]);
+
+  /**
+   * ルートノードとその子孫からなるグループ間の衝突を検出し、解決する.
+   * Y軸方向の重なりを解消するようにグループを移動させる.
+   */
+  const detectAndResolveCollisions = useCallback(() => {
+    const rootNodes = nodes.filter(n => !n.parentId).sort((a, b) => a.y - b.y);
+    if (rootNodes.length <= 1) return; // 衝突する相手がいない場合は何もしない
+
+    // 各ルートノードを基点とするグループの境界ボックスを計算
+    const groups = rootNodes.map(root => {
+      const allDescendants = getDescendants(root.id);
+      const groupNodes = [root, ...allDescendants];
+      
+      if (groupNodes.length === 0) return null;
+
+      const minX = Math.min(...groupNodes.map(n => n.x));
+      const maxX = Math.max(...groupNodes.map(n => n.x + (n.width || calculateNodeWidth(n.content, !n.parentId))));
+      const minY = Math.min(...groupNodes.map(n => n.y));
+      const maxY = Math.max(...groupNodes.map(n => n.y + 40)); // 40はノードの高さ
+
+      return {
+        rootId: root.id,
+        bounds: { minX, maxX, minY, maxY },
+        centerY: (minY + maxY) / 2,
+        height: maxY - minY
+      };
+    }).filter(Boolean);
+
+    let hasCollisions = true;
+    let attempts = 0;
+    const maxAttempts = 5; // 無限ループを避けるための試行回数制限
+
+    while (hasCollisions && attempts < maxAttempts) {
+      hasCollisions = false;
+      attempts++;
+
+      // 全てのグループのペアで衝突をチェック
+      for (let i = 0; i < groups.length - 1; i++) {
+        for (let j = i + 1; j < groups.length; j++) {
+          const group1 = groups[i];
+          const group2 = groups[j];
+          
+          if (!group1 || !group2) continue;
+
+          // Y軸方向の重なりを計算
+          const yOverlap = Math.max(0, 
+            Math.min(group1.bounds.maxY, group2.bounds.maxY) - 
+            Math.max(group1.bounds.minY, group2.bounds.minY)
+          );
+
+          if (yOverlap > 0) {
+            hasCollisions = true;
+            
+            // 下にあるグループをさらに下に移動させる
+            const lowerGroup = group1.centerY > group2.centerY ? group1 : group2;
+            const moveDistance = yOverlap + COLLISION_DETECTION_BUFFER; // バッファを持たせて移動
+            
+            moveNodeGroup(lowerGroup.rootId, 0, moveDistance);
+            
+            // 移動後の境界ボックスを更新
+            lowerGroup.bounds.minY += moveDistance;
+            lowerGroup.bounds.maxY += moveDistance;
+            lowerGroup.centerY += moveDistance;
+          }
+        }
+      }
+    }
+  }, [nodes, getDescendants, calculateNodeWidth, moveNodeGroup]);
+
+  /**
+   * 指定されたX座標周辺で、他のノードグループが占有しているY座標の範囲を取得する.
+   * 新しいノードを配置する際に、既存のノードとの衝突を避けるために使用.
+   */
+  const getOccupiedYRanges = useCallback((x: number, excludeParentId: string): { start: number; end: number }[] => {
+    const ranges: { start: number; end: number }[] = [];
+    const NODE_HEIGHT = 40;
+    const COLLISION_MARGIN = COLLISION_DETECTION_BUFFER / 2;
+    
+    // 自分自身の親グループを除外した他の親ノードを取得
+    const parentNodes = nodes.filter(n => !n.parentId && n.id !== excludeParentId);
+    
+    parentNodes.forEach(parent => {
+      if (parent.children.length > 0) {
+        const parentWidth = parent.width || calculateNodeWidth(parent.content, true);
+        const childX = parent.x + parentWidth + 60; // 子ノードのおおよそのX座標
+        
+        // 指定されたX座標の近くに子ノード群がある場合のみ考慮
+        if (Math.abs(childX - x) < 120) {
+          parent.children.forEach(childId => {
+            const child = nodes.find(n => n.id === childId);
+            if (child) {
+              const descendants = getDescendants(childId);
+              const allNodes = [child, ...descendants];
+              
+              allNodes.forEach(node => {
+                ranges.push({
+                  start: node.y - COLLISION_MARGIN,
+                  end: node.y + NODE_HEIGHT + COLLISION_MARGIN
+                });
+              });
+            }
+          });
+        }
+      }
+    });
+    
+    // 占有範囲をソートし、重なっている部分を結合（マージ）する
+    const sortedRanges = ranges.sort((a, b) => a.start - b.start);
+    const mergedRanges: { start: number; end: number }[] = [];
+    
+    sortedRanges.forEach(range => {
+      if (mergedRanges.length === 0 || mergedRanges[mergedRanges.length - 1].end < range.start) {
+        mergedRanges.push(range);
+      } else {
+        mergedRanges[mergedRanges.length - 1].end = Math.max(mergedRanges[mergedRanges.length - 1].end, range.end);
+      }
+    });
+    
+    return mergedRanges;
+  }, [nodes, calculateNodeWidth, getDescendants]);
+
+  /**
+   * 占有されているY座標範囲を避け、指定された高さのスペースを確保できるY座標を探す.
+   * 理想的な開始Y座標に最も近い空きスペースを返す.
+   */
+  const findClearYSpace = useCallback((preferredStartY: number, totalHeight: number, occupiedRanges: { start: number; end: number }[], spacing: number): number => {
+    const preferredEndY = preferredStartY + totalHeight;
+    const BUFFER = COLLISION_DETECTION_BUFFER;
+    
+    // 理想的な位置に衝突があるかどうかをチェック
+    const hasCollision = occupiedRanges.some(range => 
+      !(preferredEndY + BUFFER < range.start || preferredStartY - BUFFER > range.end)
+    );
+    
+    // 衝突がなければ、理想的な位置を返す
+    if (!hasCollision) {
+      return preferredStartY;
+    }
+    
+    // 衝突がある場合、最も近い空きスペースを探す
+    let bestY = preferredStartY;
+    let minOffset = Infinity;
+    
+    // 各占有範囲の上と下に配置する候補を試す
+    occupiedRanges.forEach((range, index) => {
+      // 占有範囲の上に配置する場合
+      const aboveY = range.start - totalHeight - BUFFER;
+      const aboveOffset = Math.abs(aboveY - preferredStartY);
+      if (aboveOffset < minOffset) {
+        const aboveEndY = aboveY + totalHeight;
+        // 他の範囲と衝突しないか確認
+        const hasAboveCollision = occupiedRanges.some((otherRange, otherIndex) => 
+          otherIndex !== index && !(aboveEndY + BUFFER < otherRange.start || aboveY - BUFFER > otherRange.end)
+        );
+        if (!hasAboveCollision) {
+          bestY = aboveY;
+          minOffset = aboveOffset;
+        }
+      }
+      
+      // 占有範囲の下に配置する場合
+      const belowY = range.end + BUFFER;
+      const belowOffset = Math.abs(belowY - preferredStartY);
+      if (belowOffset < minOffset) {
+        const belowEndY = belowY + totalHeight;
+        // 他の範囲と衝突しないか確認
+        const hasBelowCollision = occupiedRanges.some((otherRange, otherIndex) => 
+          otherIndex !== index && !(belowEndY + BUFFER < otherRange.start || belowY - BUFFER > otherRange.end)
+        );
+        if (!hasBelowCollision) {
+          bestY = belowY;
+          minOffset = belowOffset;
+        }
+      }
+    });
+    
+    return bestY;
+  }, []);
+
+  /**
+   * 親ノードに対して、子ノード群をバランス良く配置するための座標を計算する.
+   * 衝突回避ロジックも組み込まれている.
+   */
+  const calculateBalancedChildPositions = useCallback((parentNode: Node, useFixedDistance = true): { x: number; y: number }[] => {
+    const childCount = parentNode.children.length;
+    if (childCount === 0) return [];
+
+    const parentWidth = parentNode.width || calculateNodeWidth(parentNode.content, !parentNode.parentId);
+    // 子ノードのX座標を計算
+    const baseX = useFixedDistance 
+      ? parentNode.x + parentWidth + 60 // 固定距離
+      : parentNode.x + NODE_SPACING_X; // 可変距離
+    const positions: { x: number; y: number }[] = [];
+
+    // 子が1つの場合は親の真横に配置
+    if (childCount === 1) {
+      positions.push({ x: baseX, y: parentNode.y });
+    } else {
+      // 子が複数の場合は親の中心Y座標の上下に均等に配置
+      const baseSpacing = Math.max(60, NODE_SPACING_Y - Math.max(0, (childCount - 2) * 5));
+      let spacing = baseSpacing;
+      
+      // 近くに他のノードグループがある場合は、間隔を広げる
+      const otherRootNodes = nodes.filter(n => !n.parentId && n.id !== (parentNode.parentId || parentNode.id));
+      const hasNearbyGroups = otherRootNodes.some(root => {
+        const rootDescendants = getDescendants(root.id);
+        const anyChildNearX = rootDescendants.some(desc => Math.abs(desc.x - baseX) < 150);
+        return anyChildNearX;
+      });
+      
+      if (hasNearbyGroups) {
+        spacing = Math.max(spacing, 80);
+      }
+      
+      const totalHeight = (childCount - 1) * spacing;
+      const startY = parentNode.y - totalHeight / 2; // 配置を開始するY座標の理想値
+
+      // 衝突を避けるためのY座標を計算
+      const occupiedRanges = getOccupiedYRanges(baseX, parentNode.id);
+      let adjustedStartY = startY;
+      
+      if (occupiedRanges.length > 0) {
+        adjustedStartY = findClearYSpace(startY, totalHeight, occupiedRanges, spacing);
+      }
+
+      // 各子ノードの最終的な座標を計算
+      for (let i = 0; i < childCount; i++) {
+        positions.push({
+          x: baseX,
+          y: adjustedStartY + i * spacing
+        });
+      }
+    }
+
+    return positions;
+  }, [calculateNodeWidth, nodes, getDescendants, getOccupiedYRanges, findClearYSpace]);
+
+  /**
+   * 親ノードの直接の子とその子孫を再帰的にY軸方向に移動させる.
+   * 親が移動した際に、子の相対的なY位置を保つために使用.
+   */
+  const moveDescendantsVertically = useCallback((parentNodeId: string, deltaY: number) => {
+    const parentNode = nodes.find(n => n.id === parentNodeId);
+    if (!parentNode || parentNode.children.length === 0 || deltaY === 0) return;
+
+    setNodes(prev => prev.map(node => {
+      if (parentNode.children.includes(node.id)) {
+        const updatedNode = {
+          ...node,
+          y: node.y + deltaY
+        };
+        
+        // このノードにさらに子がいれば、それらも再帰的に移動
+        if (node.children.length > 0) {
+          // setTimeoutを使って、再描画のタイミングをずらし、パフォーマンス問題を回避
+          setTimeout(() => moveDescendantsVertically(node.id, deltaY), 0);
+        }
+        
+        return updatedNode;
+      }
+      return node;
+    }));
+  }, [nodes, setNodes]);
+
+  /**
+   * 親ノードが変更された後（例：幅が変わった、移動した）、子ノードの位置を再調整する.
+   */
+  const adjustChildPositionsAfterParentChange = useCallback((parentId: string) => {
+    const parentNode = nodes.find(n => n.id === parentId);
+    if (!parentNode || parentNode.children.length === 0) return;
+
+    const newPositions = calculateBalancedChildPositions(parentNode, true);
+    
+    setNodes(prev => prev.map(node => {
+      const childIndex = parentNode.children.indexOf(node.id);
+      if (childIndex !== -1 && newPositions[childIndex]) {
+        const oldPosition = { x: node.x, y: node.y };
+        const newPosition = newPositions[childIndex];
+        const deltaX = newPosition.x - oldPosition.x;
+        const deltaY = newPosition.y - oldPosition.y;
+        
+        const updatedNode = {
+          ...node,
+          x: newPosition.x,
+          y: newPosition.y
+        };
+        
+        // 子ノードの位置が変わった場合、その子孫も追随させる
+        if (deltaX !== 0 || deltaY !== 0) {
+          moveDescendants(node.id, deltaX, deltaY);
+        }
+        
+        return updatedNode;
+      }
+      return node;
+    }));
+  }, [nodes, calculateBalancedChildPositions, setNodes]);
+
+  /**
+   * 指定されたノードの全ての子孫を、指定された差分(deltaX, deltaY)だけ移動させる.
+   */
+  const moveDescendants = useCallback((parentNodeId: string, deltaX: number, deltaY: number) => {
+    const parentNode = nodes.find(n => n.id === parentNodeId);
+    if (!parentNode || parentNode.children.length === 0) return;
+
+    setNodes(prev => prev.map(node => {
+      // 親の直接の子かどうかをチェック
+      if (parentNode.children.includes(node.id)) {
+        const updatedNode = {
+          ...node,
+          x: node.x + deltaX,
+          y: node.y + deltaY
+        };
+        
+        // このノードにさらに子がいれば、それらも再帰的に移動
+        if (node.children.length > 0) {
+          moveDescendants(node.id, deltaX, deltaY);
+        }
+        
+        return updatedNode;
+      }
+      return node;
+    }));
+  }, [nodes, setNodes]);
+
+  return {
+    textMeasureRef,
+    measureTextWidth,
+    getDescendants,
+    moveNodeGroup,
+    detectAndResolveCollisions,
+    getOccupiedYRanges,
+    findClearYSpace,
+    calculateBalancedChildPositions,
+    moveDescendantsVertically,
+    adjustChildPositionsAfterParentChange,
+    moveDescendants,
+  };
+};
+
+/**
+ * マインドマップに対するユーザーアクション（ノードの追加、削除、編集など）を処理するカスタムフック.
+ */
+export const useMindMapActions = (
+  nodes: Node[],
+  setNodes: React.Dispatch<React.SetStateAction<Node[]>>,
+  nextNodeId: number,
+  setNextNodeId: React.Dispatch<React.SetStateAction<number>>,
+  editingContent: { [nodeId: string]: string },
+  setEditingContent: React.Dispatch<React.SetStateAction<{ [nodeId: string]: string }>>,
+  calculateNodeWidth: (content: string, isRoot?: boolean) => number,
+  calculateBalancedChildPositions: (parentNode: Node, useFixedDistance?: boolean) => { x: number; y: number }[],
+  moveDescendantsVertically: (parentNodeId: string, deltaY: number) => void,
+  detectAndResolveCollisions: () => void,
+  adjustChildPositionsAfterParentChange: (parentId: string) => void
+) => {
+  /**
+   * ノードの内容に基づいて幅を更新する.
+   * 幅が大きく変わった場合は、子のレイアウトも再調整する.
+   */
+  const updateNodeWidth = useCallback((nodeId: string, content: string) => {
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node) return;
+    
+    const isRoot = !node.parentId;
+    const oldWidth = node.width || 0;
+    const newWidth = calculateNodeWidth(content, isRoot);
+    
+    setNodes(prev => prev.map(n => 
+      n.id === nodeId ? { ...n, width: newWidth } : n
+    ));
+
+    // 幅の変更が一定以上ある場合、子の位置を調整
+    if (node.children.length > 0 && Math.abs(newWidth - oldWidth) > 5) {
+      setTimeout(() => {
+        adjustChildPositionsAfterParentChange(nodeId);
+        setTimeout(detectAndResolveCollisions, 100); // レイアウト調整後に衝突を再チェック
+      }, 0);
+    }
+  }, [nodes, calculateNodeWidth, adjustChildPositionsAfterParentChange, detectAndResolveCollisions, setNodes]);
+
+  /**
+   * 指定された親ノードの下に新しい子ノードを作成する.
+   */
+  const createChildNode = useCallback((parentId: string) => {
+    const parentNode = nodes.find(n => n.id === parentId);
+    if (!parentNode) return;
+
+    // 新しい子を追加した場合の親ノードを一時的に作成して、位置を計算
+    const tempUpdatedParent = {
+      ...parentNode,
+      children: [...parentNode.children, nextNodeId.toString()]
+    };
+    
+    const newPositions = calculateBalancedChildPositions(tempUpdatedParent, true);
+    const position = newPositions[parentNode.children.length]; // 新しいノードの位置
+    
+    const newNode: Node = {
+      id: nextNodeId.toString(),
+      x: position.x,
+      y: position.y,
+      content: '', // 最初は空
+      parentId,
+      children: [],
+      isEditing: true, // 作成直後に編集モードにする
+      isSelected: true, // 作成直後に選択状態にする
+      isCollapsed: false,
+      level: parentNode.level + 1,
+      width: calculateNodeWidth('', false),
+    };
+
+    setNodes(prev => {
+      // 他のノードの選択状態と編集状態を解除
+      const updated = prev.map(node => ({
+        ...node,
+        isSelected: node.id === newNode.id,
+        isEditing: false,
+      }));
+      
+      // 親ノードの子リストに新しいノードIDを追加
+      const parentIndex = updated.findIndex(n => n.id === parentId);
+      if (parentIndex !== -1) {
+        updated[parentIndex] = {
+          ...updated[parentIndex],
+          children: [...updated[parentIndex].children, newNode.id],
+        };
+      }
+      
+      return [...updated, newNode];
+    });
+
+    // 編集用コンテンツを初期化
+    setEditingContent(prev => ({
+      ...prev,
+      [newNode.id]: ''
+    }));
+
+    // 非同期で、追加後の兄弟ノード全体のレイアウトを再調整
+    setTimeout(() => {
+      const finalUpdatedParent = { ...parentNode, children: [...parentNode.children, nextNodeId.toString()] };
+      const allPositions = calculateBalancedChildPositions(finalUpdatedParent, true);
+      
+      setNodes(prev => prev.map(node => {
+        const childIndex = finalUpdatedParent.children.indexOf(node.id);
+        if (childIndex !== -1 && allPositions[childIndex]) {
+          const newPos = allPositions[childIndex];
+          const deltaY = newPos.y - node.y;
+          
+          if (deltaY !== 0) { // Y座標が変わった場合、その子孫も追随
+            moveDescendantsVertically(node.id, deltaY);
+          }
+          
+          return {
+            ...node,
+            x: newPos.x,
+            y: newPos.y
+          };
+        }
+        return node;
+      }));
+      
+      setTimeout(detectAndResolveCollisions, 150);
+    }, 0);
+
+    setNextNodeId(prev => prev + 1); // 次のIDをインクリメント
+  }, [nodes, nextNodeId, calculateBalancedChildPositions, calculateNodeWidth, moveDescendantsVertically, detectAndResolveCollisions, setNodes, setEditingContent, setNextNodeId]);
+
+  /**
+   * 指定されたノードと同じ階層に新しい兄弟ノードを作成する.
+   */
+  const createSiblingNode = useCallback((nodeId: string) => {
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node || !node.parentId) return; // ルートノードは兄弟を作成できない
+
+    const parentNode = nodes.find(n => n.id === node.parentId);
+    if (!parentNode) return;
+
+    const currentNodeIndex = parentNode.children.indexOf(nodeId);
+    if (currentNodeIndex === -1) return;
+
+    // 親の子リストの、現在のノードの次に新しいノードIDを挿入
+    const newChildren = [...parentNode.children];
+    newChildren.splice(currentNodeIndex + 1, 0, nextNodeId.toString());
+
+    // 新しい子リストで一時的に位置を計算
+    const tempUpdatedParent = {
+      ...parentNode,
+      children: newChildren
+    };
+    
+    const newPositions = calculateBalancedChildPositions(tempUpdatedParent, true);
+    const position = newPositions[currentNodeIndex + 1];
+    
+    const newNode: Node = {
+      id: nextNodeId.toString(),
+      x: position.x,
+      y: position.y,
+      content: '',
+      parentId: node.parentId,
+      children: [],
+      isEditing: true,
+      isSelected: true,
+      isCollapsed: false,
+      level: node.level,
+      width: calculateNodeWidth(''),
+    };
+
+    setNodes(prev => {
+      const updated = prev.map(n => ({
+        ...n,
+        isSelected: n.id === newNode.id,
+        isEditing: false,
+      }));
+      
+      const parentIndex = updated.findIndex(n => n.id === node.parentId);
+      if (parentIndex !== -1) {
+        updated[parentIndex] = {
+          ...updated[parentIndex],
+          children: newChildren, // 親の子リストを更新
+        };
+      }
+      
+      return [...updated, newNode];
+    });
+
+    setEditingContent(prev => ({
+      ...prev,
+      [newNode.id]: ''
+    }));
+
+    // 非同期で、兄弟ノード全体のレイアウトを再調整
+    setTimeout(() => {
+      const finalUpdatedParent = { ...parentNode, children: newChildren };
+      const allPositions = calculateBalancedChildPositions(finalUpdatedParent, true);
+      
+      setNodes(prev => prev.map(n => {
+        const childIndex = newChildren.indexOf(n.id);
+        if (childIndex !== -1 && allPositions[childIndex]) {
+          const newPos = allPositions[childIndex];
+          const deltaY = newPos.y - n.y;
+          
+          if (deltaY !== 0) {
+            moveDescendantsVertically(n.id, deltaY);
+          }
+          
+          return {
+            ...n,
+            x: newPos.x,
+            y: newPos.y
+          };
+        }
+        return n;
+      }));
+      
+      setTimeout(detectAndResolveCollisions, 150);
+    }, 0);
+
+    setNextNodeId(prev => prev + 1);
+  }, [nodes, nextNodeId, calculateBalancedChildPositions, calculateNodeWidth, moveDescendantsVertically, detectAndResolveCollisions, setNodes, setEditingContent, setNextNodeId]);
+
+  /**
+   * 指定されたノードとその全ての子孫を削除する.
+   */
+  const deleteNode = useCallback((nodeId: string) => {
+    const nodeToDelete = nodes.find(n => n.id === nodeId);
+    // ルートノードは削除できないようにする
+    if (!nodeToDelete?.parentId) {
+      return;
+    }
+    
+    const parentId = nodeToDelete?.parentId;
+
+    setNodes(prev => {
+      const node = prev.find(n => n.id === nodeId);
+      if (!node) return prev;
+
+      // 親ノードの子リストから削除対象ノードIDを取り除く
+      const updated = prev.map(node => {
+        if (node.children.includes(nodeId)) {
+          return {
+            ...node,
+            children: node.children.filter(childId => childId !== nodeId),
+          };
+        }
+        return node;
+      });
+
+      // 削除対象ノードとその全ての子孫のIDをリストアップ
+      const nodesToRemove = new Set([nodeId]);
+      const findDescendants = (id: string) => {
+        const node = updated.find(n => n.id === id);
+        if (node) {
+          node.children.forEach(childId => {
+            nodesToRemove.add(childId);
+            findDescendants(childId);
+          });
+        }
+      };
+      findDescendants(nodeId);
+
+      // リストアップしたIDのノードを全てフィルタリングして削除
+      return updated.filter(node => !nodesToRemove.has(node.id));
+    });
+
+    // 編集中のコンテンツからも削除
+    setEditingContent(prev => {
+      const newState = { ...prev };
+      delete newState[nodeId];
+      return newState;
+    });
+
+    // 削除後、残った兄弟ノードのレイアウトを再調整
+    if (parentId) {
+      setTimeout(() => {
+        const parentNode = nodes.find(n => n.id === parentId);
+        if (parentNode && parentNode.children.length > 1) {
+          const remainingChildren = parentNode.children.filter(childId => childId !== nodeId);
+          const updatedParent = { ...parentNode, children: remainingChildren };
+          const newPositions = calculateBalancedChildPositions(updatedParent, true);
+          
+          setNodes(prev => prev.map(node => {
+            const childIndex = remainingChildren.indexOf(node.id);
+            if (childIndex !== -1 && newPositions[childIndex]) {
+              const oldY = node.y;
+              const newY = newPositions[childIndex].y;
+              const deltaY = newY - oldY;
+              
+              const updatedNode = {
+                ...node,
+                x: newPositions[childIndex].x,
+                y: newY
+              };
+              
+              if (deltaY !== 0) {
+                moveDescendantsVertically(node.id, deltaY);
+              }
+              
+              return updatedNode;
+            }
+            return node;
+          }));
+        }
+      }, 0);
+    }
+  }, [nodes, moveDescendantsVertically, calculateBalancedChildPositions, setNodes, setEditingContent]);
+
+  /**
+   * ノードの編集を完了し、コンテンツを更新する.
+   * コンテンツが空の場合はノードを削除する.
+   */
+  const updateNodeContent = useCallback((nodeId: string, content: string) => {
+    const trimmedContent = content.trim(); // 前後の空白を削除
+    if (trimmedContent === '') {
+      deleteNode(nodeId); // 空なら削除
+      return;
+    }
+
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node) return;
+
+    const isRoot = !node.parentId;
+    const oldWidth = node.width || 0;
+    const newWidth = calculateNodeWidth(trimmedContent, isRoot);
+
+    setNodes(prev => prev.map(n => {
+      if (n.id === nodeId) {
+        return {
+          ...n,
+          content: trimmedContent,
+          isEditing: false, // 編集モードを終了
+          width: newWidth,
+        };
+      }
+      return n;
+    }));
+
+    // 編集用コンテンツを削除
+    setEditingContent(prev => {
+      const newState = { ...prev };
+      delete newState[nodeId];
+      return newState;
+    });
+    
+    // 幅が大きく変わった場合は子の位置を調整
+    if (node.children.length > 0 && Math.abs(newWidth - oldWidth) > 5) {
+      setTimeout(() => {
+        adjustChildPositionsAfterParentChange(nodeId);
+      }, 0);
+    }
+  }, [nodes, deleteNode, calculateNodeWidth, adjustChildPositionsAfterParentChange, setNodes, setEditingContent]);
+
+  /**
+   * テキスト入力中に編集用コンテンツを更新し、ノードの幅を動的に変更する.
+   */
+  const handleEditingContentChange = useCallback((nodeId: string, content: string) => {
+    setEditingContent(prev => ({
+      ...prev,
+      [nodeId]: content
+    }));
+    
+    updateNodeWidth(nodeId, content);
+  }, [updateNodeWidth, setEditingContent]);
+
+  /**
+   * 指定されたノードを選択状態にする.
+   */
+  const selectNode = useCallback((nodeId: string) => {
+    setNodes(prev => prev.map(node => ({
+      ...node,
+      isSelected: node.id === nodeId,
+      isEditing: false, // 選択時は編集モードを解除
+    })));
+  }, [setNodes]);
+
+  /**
+   * 指定されたノードを編集モードにする.
+   */
+  const startNodeEditing = useCallback((nodeId: string) => {
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node) return;
+
+    setNodes(prev => prev.map(n => ({
+      ...n,
+      isEditing: n.id === nodeId,
+      isSelected: n.id === nodeId, // 編集対象は必ず選択状態にする
+    })));
+
+    // 編集用コンテンツに現在のノードの内容をセット
+    setEditingContent(prev => ({
+      ...prev,
+      [nodeId]: node.content === 'New Node' ? '' : node.content
+    }));
+  }, [nodes, setNodes, setEditingContent]);
+
+  /**
+   * ノードの編集をキャンセルする.
+   * 新規作成されたノードで内容が空の場合は、そのノードを削除する.
+   */
+  const cancelEditing = useCallback((nodeId: string) => {
+    const node = nodes.find(n => n.id === nodeId);
+    const currentEditingContent = editingContent[nodeId] || '';
+    
+    if (node && currentEditingContent.trim() === '') {
+      deleteNode(nodeId); // 空のまま編集をやめたら削除
+    } else {
+      // 編集モードを解除するだけ
+      setNodes(prev => prev.map(n => 
+        n.id === nodeId ? { ...n, isEditing: false } : n
+      ));
+      
+      setEditingContent(prev => {
+        const newState = { ...prev };
+        delete newState[nodeId];
+        return newState;
+      });
+    }
+  }, [nodes, editingContent, deleteNode, setNodes, setEditingContent]);
+
+  /**
+   * ノードの子の表示・非表示を切り替える（折りたたみ/展開）.
+   */
+  const toggleChildrenVisibility = useCallback((nodeId: string) => {
+    setNodes(prev => prev.map(node => 
+      node.id === nodeId 
+        ? { ...node, isCollapsed: !node.isCollapsed }
+        : node
+    ));
+  }, [setNodes]);
+
+  return {
+    updateNodeWidth,
+    createChildNode,
+    createSiblingNode,
+    deleteNode,
+    updateNodeContent,
+    handleEditingContentChange,
+    selectNode,
+    startNodeEditing,
+    cancelEditing,
+    toggleChildrenVisibility,
+  };
+};
+
+/**
+ * マインドマップの状態を読み取り、表示に必要な情報を計算するユーティリティフック.
+ * 状態を変更することはない.
+ */
+export const useMindMapUtils = (
+  nodes: Node[],
+  calculateNodeWidth: (content: string, isRoot?: boolean) => number
+) => {
+  /**
+   * 現在表示されるべきノード（親が折りたたまれていないノード）のリストを取得する.
+   */
+  const getVisibleNodes = useCallback(() => {
+    const visibleNodes: Node[] = [];
+    const processedNodes = new Set<string>();
+
+    const processNode = (node: Node) => {
+      if (processedNodes.has(node.id)) return;
+      processedNodes.add(node.id);
+      
+      visibleNodes.push(node);
+
+      // ノードが展開されている場合のみ、子ノードを再帰的に処理
+      if (!node.isCollapsed) {
+        node.children.forEach(childId => {
+          const childNode = nodes.find(n => n.id === childId);
+          if (childNode) {
+            processNode(childNode);
+          }
+        });
+      }
+    };
+    
+    // ルートノードから処理を開始
+    const rootNodes = nodes.filter(n => !n.parentId);
+    rootNodes.forEach(processNode);
+
+    return visibleNodes;
+  }, [nodes]);
+
+  /**
+   * 展開/折りたたみボタンの表示位置を計算する.
+   */
+  const getExpandButtonPosition = useCallback((node: Node) => {
+    if (node.children.length === 0) return null; // 子がなければボタンは不要
+    
+    const nodeWidth = node.width || calculateNodeWidth(node.content, !node.parentId);
+    const NODE_HEIGHT = 40;
+    
+    // ノードの右端中央に配置
+    return {
+      x: node.x + nodeWidth,
+      y: node.y + NODE_HEIGHT / 2,
+    };
+  }, [calculateNodeWidth]);
+
+  /**
+   * 展開/折りたたみボタンを表示すべきかどうかを判定する.
+   */
+  const shouldShowExpandButton = useCallback((node: Node) => {
+    return node.children.length > 0;
+  }, []);
+
+  /**
+   * 表示されているノード間に描画する線の情報を計算する.
+   */
+  const calculateConnections = useCallback((): Connection[] => {
+    const visibleNodes = getVisibleNodes();
+    const newConnections: Connection[] = [];
+    
+    visibleNodes.forEach(node => {
+      // 子がいて、かつ展開されているノードのみ線を引く
+      if (node.children.length > 0 && !node.isCollapsed) {
+        const isRoot = !node.parentId;
+        const nodeWidth = node.width || calculateNodeWidth(node.content, isRoot);
+        const NODE_HEIGHT = 40;
+        
+        // 親ノードの右端中央が線の始点
+        const parentRightCenterX = node.x + nodeWidth;
+        const parentRightCenterY = node.y + NODE_HEIGHT / 2;
+
+        for (let i = 0; i < node.children.length; i++) {
+          const childId = node.children[i];
+          const child = visibleNodes.find(n => n.id === childId);
+          if (child) {
+            // 子ノードの左端中央が線の終点
+            const childLeftCenterX = child.x;
+            const childLeftCenterY = child.y + NODE_HEIGHT / 2;
+            
+            if (node.children.length === 1) {
+              // 子が1つの場合は直線
+              newConnections.push({
+                id: `${node.id}-${child.id}`,
+                fromNodeId: node.id,
+                toNodeId: child.id,
+                fromX: parentRightCenterX,
+                fromY: parentRightCenterY,
+                toX: childLeftCenterX,
+                toY: childLeftCenterY,
+                type: 'child',
+              });
+            } else {
+              // 複数の場合はベジェ曲線で描画するための制御点を計算
+              const controlX = parentRightCenterX + (childLeftCenterX - parentRightCenterX) * 0.5;
+              const controlY = parentRightCenterY + (childLeftCenterY - parentRightCenterY) * 0.2;
+              
+              newConnections.push({
+                id: `${node.id}-${child.id}`,
+                fromNodeId: node.id,
+                toNodeId: child.id,
+                fromX: parentRightCenterX,
+                fromY: parentRightCenterY,
+                toX: childLeftCenterX,
+                toY: childLeftCenterY,
+                type: 'sibling',
+                controlX: controlX,
+                controlY: controlY,
+              });
+            }
+          }
+        }
+      }
+    });
+    
+    return newConnections;
+  }, [nodes, getVisibleNodes, calculateNodeWidth]);
+
+  /**
+   * 2つのノード間の直線距離を計算する.
+   */
+  const getDistance = useCallback((node1: Node, node2: Node): number => {
+    return Math.sqrt(Math.pow(node2.x - node1.x, 2) + Math.pow(node2.y - node1.y, 2));
+  }, []);
+
+  /**
+   * キーボードナビゲーションのため、指定された方向にある最も近いノードを探す.
+   */
+  const findNearestNode = useCallback((currentNode: Node, direction: 'up' | 'down' | 'left' | 'right'): string | null => {
+    const visibleNodes = getVisibleNodes().filter(n => n.id !== currentNode.id);
+    if (visibleNodes.length === 0) return null;
+    
+    let candidates: Node[] = [];
+    
+    // 方向に応じて候補となるノードを絞り込む
+    switch (direction) {
+      case 'up':
+        candidates = visibleNodes.filter(n => n.y < currentNode.y - 10);
+        break;
+      case 'down':
+        candidates = visibleNodes.filter(n => n.y > currentNode.y + 10);
+        break;
+      case 'left':
+        candidates = visibleNodes.filter(n => n.x < currentNode.x - 10);
+        break;
+      case 'right':
+        candidates = visibleNodes.filter(n => n.x > currentNode.x + 10);
+        break;
+    }
+    
+    if (candidates.length === 0) return null;
+    
+    // 候補の中から最も距離が近いノードを探す
+    let nearestNode = candidates[0];
+    let minDistance = getDistance(currentNode, nearestNode);
+    
+    for (let i = 1; i < candidates.length; i++) {
+      const distance = getDistance(currentNode, candidates[i]);
+      if (distance < minDistance) {
+        minDistance = distance;
+        nearestNode = candidates[i];
+      }
+    }
+    
+    return nearestNode.id;
+  }, [getVisibleNodes, getDistance]);
+
+  return {
+    getVisibleNodes,
+    getExpandButtonPosition,
+    shouldShowExpandButton,
+    calculateConnections,
+    getDistance,
+    findNearestNode,
+  };
+};
+
+/**
+ * マインドマップデータのインポート・エクスポート機能を管理するカスタムフック.
+ */
+export const useMindMapImportExport = (
+  nodes: Node[],
+  setNodes: React.Dispatch<React.SetStateAction<Node[]>>,
+  setNextNodeId: React.Dispatch<React.SetStateAction<number>>,
+  setViewState: React.Dispatch<React.SetStateAction<ViewState>>,
+  setNavigationMode: React.Dispatch<React.SetStateAction<boolean>>,
+  setEditingContent: React.Dispatch<React.SetStateAction<{ [nodeId: string]: string }>>,
+  calculateNodeWidth: (content: string, isRoot?: boolean) => number
+) => {
+  /**
+   * 現在のマインドマップの状態をJSONファイルとしてエクスポート（ダウンロード）する.
+   */
+  const exportMindMap = useCallback(() => {
+    const exportData: ExportData = {
+      version: '1.0.0', // データ形式のバージョン
+      createdAt: new Date().toISOString(),
+      nodes: nodes,
+      metadata: {
+        title: nodes.find(n => !n.parentId)?.content || 'Untitled Mind Map',
+        nodeCount: nodes.length,
+        maxLevel: Math.max(...nodes.map(n => n.level)),
+      },
+    };
+
+    // データをJSON文字列に変換
+    const dataStr = JSON.stringify(exportData, null, 2);
+    // Blobオブジェクトを作成
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    
+    // aタグを生成してダウンロードをトリガー
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `mindmap_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, [nodes]);
+
+  /**
+   * JSONファイルをインポートしてマインドマップの状態を復元する.
+   * (この関数は未完成です。ファイル読み込みと状態設定のロジックを実装する必要があります)
+   */
+  const importMindMap = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    // ここにファイル読み込み処理、JSONパース、
+    // setNodes, setNextNodeId などを使った状態の復元ロジックを実装します。
+  }, [setNodes, setNextNodeId, setViewState, setNavigationMode, setEditingContent]);
+
+  return {
+    exportMindMap,
+    importMindMap,
+  };
+};
+
+
+import React from 'react';
+// lucide-reactからアイコンをインポート
+import { Plus, X, ChevronDown, ChevronRight, Download, Upload, Save, FolderOpen, Zap, ArrowLeft, Menu, Home, Brain, Search, Map, Settings, Share2, Star, Clock, Users } from 'lucide-react';
+import { Node, Connection, ViewState } from './types';
+import { LanguageSwitcher } from '../LanguageSwitcher';
+
+// Toolbarコンポーネントのプロパティの型定義
+interface ToolbarProps {
+  sidebarVisible: boolean; // サイドバーが表示されているか
+  setSidebarVisible: (visible: boolean) => void; // サイドバーの表示/非表示を切り替える関数
+  triggerImport: () => void; // ファイルインポートのトリガー関数
+  exportMindMap: () => void; // マインドマップをエクスポートする関数
+  handleBackToDashboard: () => void; // ダッシュボードに戻る関数
+  currentMapName?: string; // 現在開いているマップの名前
+  hasUnsavedChanges: boolean; // 未保存の変更があるか
+}
+
+/**
+ * アプリケーションの上部に表示されるツールバーコンポーネント.
+ * マップ名の表示、インポート/エクスポート機能、ダッシュボードへのナビゲーションなどを提供.
+ */
+export const Toolbar: React.FC<ToolbarProps> = ({
+  sidebarVisible,
+  setSidebarVisible,
+  triggerImport,
+  exportMindMap,
+  handleBackToDashboard,
+  currentMapName,
+  hasUnsavedChanges,
+}) => (
+  // 半透明の背景とぼかし効果を持つコンテナ
+  <div className="bg-white/80 backdrop-blur-sm border-b border-white/50 px-4 py-3 shadow-lg">
+    <div className="flex items-center justify-between">
+      {/* 左側のセクション */}
+      <div className="flex items-center space-x-1">
+        {/* サイドバーの表示/非表示を切り替えるボタン */}
+        <button 
+          onClick={() => setSidebarVisible(!sidebarVisible)}
+          className="p-2 text-slate-600 hover:text-slate-800 hover:bg-white/50 rounded-lg transition-colors mr-2"
+          title={sidebarVisible ? "サイドバーを隠す" : "サイドバーを表示"}
+        >
+          {sidebarVisible ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+        </button>
+        <div className="w-px h-6 bg-slate-300 mx-2" />
+        
+        {/* インポート/エクスポートボタン */}
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={triggerImport}
+            className="flex items-center space-x-1 px-3 py-1.5 text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+            title="マインドマップをインポート"
+          >
+            <Upload className="w-4 h-4" />
+            <span className="hidden sm:inline">インポート</span>
+          </button>
+          <button
+            onClick={exportMindMap}
+            className="flex items-center space-x-1 px-3 py-1.5 text-sm font-medium text-gray-700 hover:text-green-600 hover:bg-green-50 rounded-md transition-colors"
+            title="マインドマップをエクスポート"
+          >
+            <Download className="w-4 h-4" />
+            <span className="hidden sm:inline">エクスポート</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 中央のセクション：マップ名表示 */}
+      <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-2">
+          {/* アプリアイコン */}
+          <div className="w-6 h-6 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
+            <Brain className="w-4 h-4 text-white" />
+          </div>
+          {/* ダッシュボードへのホームボタン */}
+          <button 
+            onClick={handleBackToDashboard}
+            className="text-slate-500 hover:text-slate-700 transition-colors"
+            title="ダッシュボードに戻る"
+          >
+            <Home className="w-4 h-4" />
+          </button>
+          <span className="text-slate-400">/</span>
+          {/* マップ名 */}
+          <h2 className="text-lg font-semibold text-slate-800">
+            {currentMapName || '無題のマインドマップ'}
+          </h2>
+          {/* 未保存の変更がある場合に表示されるバッジ */}
+          {hasUnsavedChanges && (
+            <span className="text-xs text-amber-700 bg-gradient-to-r from-amber-100 to-orange-100 px-2 py-1 rounded-full font-semibold">
+              未保存
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* 右側のセクション */}
+      <div className="flex items-center space-x-1">
+        <LanguageSwitcher variant="compact" />
+        <div className="w-px h-6 bg-slate-300 mx-2" />
+        {/* ダッシュボードに戻るボタン */}
+        <button 
+          onClick={handleBackToDashboard}
+          className="flex items-center space-x-2 px-3 py-2 text-slate-600 hover:text-slate-800 hover:bg-white/50 rounded-lg transition-colors text-sm font-semibold"
+          title="ダッシュボードに戻る"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span className="hidden sm:inline">ダッシュボード</span>
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
+// Sidebarコンポーネントのプロパティの型定義
+interface SidebarProps {
+  currentMapId?: string; // 現在開いているマップのID
+}
+
+/**
+ * アプリケーションの左側に表示されるサイドバーコンポーネント.
+ * マップのリスト、検索機能などを提供.
+ */
+export const Sidebar: React.FC<SidebarProps> = ({ currentMapId }) => (
+  <div className="w-64 bg-white/80 backdrop-blur-sm border-r border-white/50 h-full flex flex-col shadow-lg">
+    {/* サイドバーヘッダー */}
+    <div className="p-4 border-b border-white/30">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center space-x-3">
+          <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
+            <Brain className="w-5 h-5 text-white" />
+          </div>
+          <span className="text-xl font-bold text-slate-800">MindFlow</span>
+        </div>
+      </div>
+      
+      {/* 検索バー */}
+      <div className="relative">
+        <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
+        <input
+          type="text"
+          placeholder="マップを検索..."
+          className="w-full pl-10 pr-4 py-2 bg-white/50 border border-white/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm backdrop-blur-sm"
+        />
+      </div>
+    </div>
+
+    {/* マップリスト */}
+    <div className="flex-1 overflow-y-auto">
+      <div className="p-4">
+        <h2 className="text-sm font-semibold text-slate-700 mb-3 uppercase tracking-wide">最近のマップ</h2>
+        <div className="space-y-2">
+          {/* TODO: ここはダミーデータ。将来的にはAPIから取得したデータでマッピングする */}
+          {[
+            { id: '1', name: 'プロジェクト戦略', nodes: 12, updated: '2時間前' },
+            { id: '2', name: 'マーケティング計画', nodes: 8, updated: '1日前' },
+            { id: '3', name: 'チーム構成', nodes: 15, updated: '3日前' },
+          ].map((map) => (
+            <div
+              key={map.id}
+              // 現在開いているマップをハイライト表示
+              className={`p-3 rounded-lg cursor-pointer transition-colors ${
+                currentMapId === map.id
+                  ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200'
+                  : 'hover:bg-white/50 border border-transparent'
+              }`}
+            >
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center">
+                  <Map className="w-4 h-4 text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-slate-800 truncate">{map.name}</p>
+                  <div className="flex items-center space-x-2 text-xs text-slate-500">
+                    <span>{map.nodes} ノード</span>
+                    <span>•</span>
+                    <div className="flex items-center space-x-1">
+                      <Clock className="w-3 h-3" />
+                      <span>{map.updated}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+
+    {/* サイドバーフッター */}
+    <div className="p-4 border-t border-white/30">
+      <div className="flex items-center justify-between mb-3">
+        <button className="p-2 text-slate-500 hover:text-slate-700 hover:bg-white/50 rounded-lg transition-colors">
+          <Settings className="w-4 h-4" />
+        </button>
+        <button className="p-2 text-slate-500 hover:text-slate-700 hover:bg-white/50 rounded-lg transition-colors">
+          <Share2 className="w-4 h-4" />
+        </button>
+      </div>
+      {/* Proプランへのアップグレードを促すUI */}
+      <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-3">
+        <div className="flex items-center space-x-2 mb-2">
+          <Star className="w-4 h-4 text-amber-500" />
+          <span className="text-sm font-semibold text-amber-800">Pro プラン</span>
+        </div>
+        <p className="text-xs text-amber-700">無制限のマップ＆共同編集</p>
+      </div>
+    </div>
+  </div>
+);
+
+// Nodeコンポーネントのプロパティの型定義
+interface NodeComponentProps {
+  node: Node;
+  currentContent: string;
+  currentWidth: number;
+  navigationMode: boolean; // ナビゲーションモードかどうか
+  dragState: any; // ドラッグ状態
+  editingContent: { [nodeId: string]: string }; // 編集中のコンテンツ
+  onSelectNode: (nodeId: string) => void; // ノード選択時のコールバック
+  onStartNodeEditing: (nodeId: string) => void; // ノード編集開始時のコールバック
+  onHandleEditingContentChange: (nodeId: string, content: string) => void; // 編集内容変更時のコールバック
+  onUpdateNodeContent: (nodeId: string, content: string) => void; // コンテンツ更新完了時のコールバック
+  onCancelEditing: (nodeId: string) => void; // 編集キャンセル時のコールバック
+  onDeleteNode: (nodeId: string) => void; // ノード削除時のコールバック
+  onCreateChildNode: (nodeId: string) => void; // 子ノード作成時のコールバック
+  onCreateSiblingNode: (nodeId: string) => void; // 兄弟ノード作成時のコールバック
+}
+
+/**
+ * マインドマップの各ノードを描画するコンポーネント.
+ * 表示、編集、操作ボタンの表示などを担当.
+ */
+export const NodeComponent: React.FC<NodeComponentProps> = ({
+  node,
+  currentContent,
+  currentWidth,
+  navigationMode,
+  dragState,
+  editingContent,
+  onSelectNode,
+  onStartNodeEditing,
+  onHandleEditingContentChange,
+  onUpdateNodeContent,
+  onCancelEditing,
+  onDeleteNode,
+  onCreateChildNode,
+  onCreateSiblingNode,
+}) => (
+  <div key={node.id}>
+    {/* ノードのコンテナ。絶対位置で配置される */}
+    <div
+      className={`absolute transition-all duration-300 group cursor-pointer ${
+        // 選択状態とナビゲーションモードに応じてスタイルを切り替え
+        node.isSelected 
+          ? navigationMode 
+            ? 'text-blue-600 bg-blue-100 rounded-lg' 
+            : 'text-blue-600'
+          : 'text-gray-800 hover:text-blue-600'
+      }`}
+      style={{
+        left: node.x,
+        top: node.y,
+        minWidth: currentWidth, // テキストに応じた動的な幅
+      }}
+      onClick={(e) => {
+        e.stopPropagation(); // 親要素へのイベント伝播を停止
+        onSelectNode(node.id);
+      }}
+    >
+      <div
+        className={`px-3 py-2 rounded transition-colors cursor-pointer ${
+          // ルートノードかどうかでフォントスタイルを変更
+          !node.parentId 
+            ? 'text-2xl font-bold' 
+            : 'text-lg font-medium'
+        }`}
+        style={{
+          width: currentWidth,
+          height: '40px',
+          display: 'flex',
+          alignItems: 'center',
+        }}
+        onClick={(e) => {
+          e.stopPropagation();
+          // ドラッグ中でなければ編集モードを開始
+          if (!dragState?.isDragging) {
+            onStartNodeEditing(node.id);
+          }
+        }}
+      >
+        {/* 選択されている場合に表示されるハイライト用の枠線 */}
+        {node.isSelected && (
+          <div className={`absolute -inset-2 border-2 rounded-lg pointer-events-none ${
+            navigationMode 
+              ? 'border-blue-600 bg-blue-100/50 shadow-lg' 
+              : 'border-blue-500 bg-blue-50/20'
+          }`} />
+        )}
+
+        {/* 編集モードか表示モードかでレンダリングを切り替え */}
+        {node.isEditing ? (
+          // 編集モード：input要素を表示
+          <input
+            type="text"
+            value={editingContent[node.id] || ''}
+            className={`bg-transparent border-b-2 border-blue-500 outline-none px-1 w-full ${
+              !node.parentId ? 'text-2xl font-bold' : 'text-lg font-medium'
+            }`}
+            style={{
+              width: `${currentWidth - 24}px`,
+              minWidth: '40px',
+              height: '32px',
+            }}
+            autoFocus // 自動でフォーカスを当てる
+            onChange={(e) => onHandleEditingContentChange(node.id, e.target.value)}
+            onBlur={(e) => onUpdateNodeContent(node.id, e.target.value)} // フォーカスが外れたら更新
+            onKeyDown={(e) => {
+              // Enterキーで更新、Escapeキーでキャンセル
+              if (e.key === 'Enter') {
+                onUpdateNodeContent(node.id, e.currentTarget.value);
+              } else if (e.key === 'Escape') {
+                onCancelEditing(node.id);
+              }
+            }}
+          />
+        ) : (
+          // 表示モード：span要素でコンテンツを表示
+          <span className={`px-1 py-1 rounded transition-colors block ${
+            !node.parentId ? 'text-2xl font-bold' : 'text-lg font-medium'
+          }`}
+          style={{
+            width: 'auto',
+            maxWidth: 'none',
+            lineHeight: '32px',
+            whiteSpace: 'nowrap', // テキストを折り返さない
+            overflow: 'visible',
+          }}>
+            {node.content}
+          </span>
+        )}
+
+        {/* 選択されていて、ルートノードでない場合に削除ボタンを表示 */}
+        {node.isSelected && node.parentId && (
+          <button
+            className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 z-20 shadow-md"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDeleteNode(node.id);
+            }}
+          >
+            <X className="w-3 h-3" />
+          </button>
+        )}
+
+        {/* 非編集時にホバーすると子ノード追加ボタンを表示 */}
+        {!node.isEditing && (
+          <button
+            className="absolute top-1/2 transform -translate-y-1/2 w-6 h-6 bg-blue-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center hover:bg-blue-600 z-10"
+            style={{
+              right: -40, // ノードの右側に配置
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onCreateChildNode(node.id);
+            }}
+          >
+            <Plus className="w-3 h-3" />
+          </button>
+        )}
+
+        {/* 非編集時かつルートノードでない場合にホバーすると兄弟ノード追加ボタンを表示 */}
+        {!node.isEditing && node.parentId && (
+          <button
+            className="absolute left-1/2 transform -translate-x-1/2 w-6 h-6 bg-green-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center hover:bg-green-600 z-10"
+            style={{
+              bottom: -40, // ノードの下側に配置
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onCreateSiblingNode(node.id);
+            }}
+          >
+            <Plus className="w-3 h-3" />
+          </button>
+        )}
+      </div>
+    </div>
+  </div>
+);
+
+// Connectionsコンポーネントのプロパティの型定義
+interface ConnectionsProps {
+  connections: Connection[]; // 描画する全ての接続線のデータ
+}
+
+/**
+ * ノード間をつなぐ線（コネクション）をSVGで描画するコンポーネント.
+ */
+export const Connections: React.FC<ConnectionsProps> = ({ connections }) => (
+  <>
+    {connections.map(connection => (
+      // 接続線の種類に応じて、ベジェ曲線か直線かを切り替え
+      connection.type === 'sibling' && connection.controlX && connection.controlY ? (
+        // 兄弟ノード間の接続は、滑らかなベジェ曲線で描画
+        <path
+          key={connection.id}
+          d={`M ${connection.fromX} ${connection.fromY} Q ${connection.controlX} ${connection.controlY} ${connection.toX} ${connection.toY}`}
+          stroke="#4F46E5"
+          strokeWidth="2.5"
+          fill="none"
+          className="transition-all duration-300"
+        />
+      ) : (
+        // 親子ノード間の接続は直線で描画
+        <line
+          key={connection.id}
+          x1={connection.fromX}
+          y1={connection.fromY}
+          x2={connection.toX}
+          y2={connection.toY}
+          stroke="#4F46E5"
+          strokeWidth="3"
+          className="transition-all duration-300"
+        />
+      )
+    ))}
+  </>
+);
+
+// ExpandButtonコンポーネントのプロパティの型定義
+interface ExpandButtonProps {
+  node: Node;
+  getExpandButtonPosition: (node: Node) => { x: number; y: number } | null; // ボタンの位置を計算する関数
+  shouldShowExpandButton: (node: Node) => boolean; // ボタンを表示すべきか判定する関数
+  onToggleChildrenVisibility: (nodeId: string) => void; // 表示/非表示を切り替えるコールバック
+}
+
+/**
+ * 子ノードを折りたたんだり展開したりするためのボタンコンポーネント.
+ */
+export const ExpandButton: React.FC<ExpandButtonProps> = ({
+  node,
+  getExpandButtonPosition,
+  shouldShowExpandButton,
+  onToggleChildrenVisibility,
+}) => {
+  // ボタンを表示する必要がない場合は何もレンダリングしない
+  if (!shouldShowExpandButton(node)) return null;
+
+  const position = getExpandButtonPosition(node);
+  if (!position) return null;
+
+  return (
+    <div
+      className="absolute z-10"
+      style={{
+        left: position.x,
+        top: position.y,
+        transform: 'translate(0, -50%)', // Y軸中心に配置
+      }}
+    >
+      <button
+        // 折りたたまれているかどうかでスタイルを切り替え
+        className={`w-6 h-6 rounded-full flex items-center justify-center transition-all duration-300 shadow-md border-2 ${
+          node.isCollapsed
+            ? 'bg-blue-500 text-white hover:bg-blue-600 border-blue-500'
+            : 'bg-white border-blue-500 text-blue-500 hover:bg-blue-50'
+        }`}
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggleChildrenVisibility(node.id);
+        }}
+      >
+        {/* isCollapsed状態に応じて内側の円のスタイルを変更 */}
+        {node.isCollapsed ? (
+          <div className="w-3 h-3 border-2 border-white rounded-full bg-white" />
+        ) : (
+          <div className="w-3 h-3 border-2 border-blue-500 rounded-full" />
+        )}
+      </button>
+    </div>
+  );
+};
+
+// NavigationModeDisplayコンポーネントのプロパティの型定義
+interface NavigationModeDisplayProps {
+  navigationMode: boolean; // ナビゲーションモードが有効か
+}
+
+/**
+ * ナビゲーションモードが有効なときに、操作方法のガイドを表示するコンポーネント.
+ */
+export const NavigationModeDisplay: React.FC<NavigationModeDisplayProps> = ({ navigationMode }) => {
+  if (!navigationMode) return null;
+
+  return (
+    <div className="absolute top-20 right-4 bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-xl shadow-xl border border-blue-500/20 backdrop-blur-sm z-50">
+      <div className="px-4 py-3 border-b border-white/20">
+        <div className="flex items-center space-x-3">
+          <div className="w-3 h-3 bg-white rounded-full animate-pulse shadow-sm"></div>
+          <span className="text-lg font-bold tracking-wide">ナビゲーションモード</span>
+        </div>
+      </div>
+      
+      <div className="px-4 py-3 space-y-3">
+        {/* 各操作のショートカットキーを表示 */}
+        <div className="space-y-2">
+          <div className="text-sm font-semibold text-blue-100 uppercase tracking-wider">移動</div>
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <div className="flex items-center space-x-2">
+              <kbd className="px-2 py-1 bg-white/20 rounded text-xs font-mono">↑↓←→</kbd>
+              <span className="text-white/90">ノード移動</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <kbd className="px-2 py-1 bg-white/20 rounded text-xs font-mono">Space</kbd>
+              <span className="text-white/90">編集開始</span>
+            </div>
+          </div>
+        </div>
+        
+        <div className="space-y-2">
+          <div className="text-sm font-semibold text-green-200 uppercase tracking-wider">追加</div>
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <div className="flex items-center space-x-2">
+              <kbd className="px-2 py-1 bg-green-500/30 rounded text-xs font-mono">Tab</kbd>
+              <span className="text-white/90">右に子ノード</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <kbd className="px-2 py-1 bg-green-500/30 rounded text-xs font-mono">Enter</kbd>
+              <span className="text-white/90">下に兄弟ノード</span>
+            </div>
+          </div>
+        </div>
+        
+        <div className="space-y-2">
+          <div className="text-sm font-semibold text-red-200 uppercase tracking-wider">操作</div>
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <div className="flex items-center space-x-2">
+              <kbd className="px-2 py-1 bg-red-500/30 rounded text-xs font-mono">Del</kbd>
+              <span className="text-white/90">ノード削除</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <kbd className="px-2 py-1 bg-gray-500/30 rounded text-xs font-mono">Esc</kbd>
+              <span className="text-white/90">モード終了</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// AICommandInputコンポーネントのプロパティの型定義
+interface AICommandInputProps {
+  showAICommand: boolean; // AIコマンド入力欄を表示するか
+  aiPrompt: string; // AIへのプロンプト
+  setAIPrompt: (prompt: string) => void; // プロンプトを更新する関数
+  onHandleAICommand: () => void; // AIコマンドを送信する関数
+  onClose: () => void; // 入力欄を閉じる関数
+}
+
+/**
+ * AIアシスタント機能のコマンド入力欄コンポーネント.
+ */
+export const AICommandInput: React.FC<AICommandInputProps> = ({
+  showAICommand,
+  aiPrompt,
+  setAIPrompt,
+  onHandleAICommand,
+  onClose,
+}) => {
+  if (!showAICommand) return null;
+
+  return (
+    <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50">
+      <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-4 min-w-[400px]">
+        <div className="flex items-center space-x-2 mb-3">
+          <Zap className="w-5 h-5 text-yellow-500" />
+          <span className="text-sm font-medium text-gray-700">AI アシスタント</span>
+        </div>
+        <input
+          type="text"
+          value={aiPrompt}
+          onChange={(e) => setAIPrompt(e.target.value)}
+          onKeyDown={(e) => {
+            // Enterで送信、Escapeで閉じる
+            if (e.key === 'Enter') onHandleAICommand();
+            if (e.key === 'Escape') onClose();
+          }}
+          placeholder="/ai プロジェクト管理手法を生成して..."
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          autoFocus
+        />
+        <div className="flex items-center justify-between mt-3 text-xs text-gray-500">
+          <span>AIコマンドを入力してEnterを押してください</span>
+          <span>ESCでキャンセル</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// FloatingActionButtonコンポーネントのプロパティの型定義
+interface FloatingActionButtonProps {
+  onShowAICommand: () => void; // AIコマンド入力欄を表示するコールバック
+}
+
+/**
+ * 画面右下に表示されるフローティングアクションボタン(FAB)コンポーネント.
+ * 主にAIコマンド入力欄の表示トリガーとして使用.
+ */
+export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({ onShowAICommand }) => (
+  <div className="absolute bottom-6 right-6 z-40">
+    <button
+      onClick={onShowAICommand}
+      className="fixed bottom-20 right-4 w-14 h-14 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center z-20 hover:scale-110"
+    >
+      <Plus className="w-6 h-6" />
+    </button>
+  </div>
+);
+
+// ZoomDisplayコンポーネントのプロパティの型定義
+interface ZoomDisplayProps {
+  scale: number; // 現在のズーム倍率
+}
+
+/**
+ * 現在のズーム倍率をパーセントで表示するコンポーネント.
+ */
+export const ZoomDisplay: React.FC<ZoomDisplayProps> = ({ scale }) => (
+  <div className="fixed bottom-4 right-4 bg-white/90 backdrop-blur-sm px-4 py-2 rounded-xl shadow-lg border border-white/50">
+    <span className="text-sm font-medium text-gray-700">
+      {Math.round(scale * 100)}%
+    </span>
+  </div>
+);

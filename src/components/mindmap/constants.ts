@@ -1,0 +1,9 @@
+export const NODE_SPACING_X = 200;
+export const NODE_SPACING_Y = 80;
+export const LEVEL_SPACING_X = 180;
+export const MIN_SCALE = 0.5;
+export const MAX_SCALE = 2.0;
+export const EXPAND_BUTTON_SIZE = 20;
+export const COLLISION_DETECTION_BUFFER = 60; // ノード間の最小距離
+export const PARENT_SPACING_INCREMENT = 120;  // 親ノード間隔の増加量
+export const MIN_PARENT_SPACING = 150;        // 親ノード間の最小間隔
