@@ -1,15 +1,12 @@
 import React, { useCallback, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMindMapStore } from '../stores/mindMapStore';
-import { useTranslation } from '../hooks/useTranslation';
 import { MIN_SCALE, MAX_SCALE } from './mindmap/constants';
-import { 
-  useMindMapState,
-  useMindMapLogic,
-  useMindMapActions,
-  useMindMapUtils,
-  useMindMapImportExport
-} from './mindmap/hooks';
+import { useMindMapState } from './mindmap/useMindMapState';
+import { useMindMapLogic } from './mindmap/useMindMapLogic.ts';
+import { useMindMapActions } from './mindmap/useMindMapActions';
+import { useMindMapUtils } from './mindmap/useMindMapUtils';
+import { useMindMapImportExport } from './mindmap/useMindMapImportExport';
 import { 
   Toolbar,
   Sidebar,
@@ -23,47 +20,53 @@ import {
 } from './mindmap/components';
 
 export const MindMapCanvas: React.FC = () => {
+  // ルーター、翻訳、状態管理の初期化
   const navigate = useNavigate();
-  const { t } = useTranslation();
   const { currentMap, hasUnsavedChanges } = useMindMapStore();
   
+  // マインドマップの状態管理フック
   const {
-    nodes,
+    nodes, // ノードのデータ
     setNodes,
-    connections,
+    connections, // ノード間の接続線
     setConnections,
-    viewState,
+    viewState, // ビュー（ズーム、位置）の状態
     setViewState,
-    dragState,
+    dragState, // ドラッグ中の状態
     setDragState,
-    navigationMode,
+    navigationMode, // キーボードナビゲーションモード
     setNavigationMode,
-    nextNodeId,
+    nextNodeId, // 次のノードID
     setNextNodeId,
-    editingContent,
+    editingContent, // 編集中のテキスト内容
     setEditingContent,
-    showAICommand,
+    showAICommand, // AIコマンド入力の表示状態
     setShowAICommand,
-    aiPrompt,
+    aiPrompt, // AIプロンプト
     setAIPrompt,
-    sidebarVisible,
+    sidebarVisible, // サイドバーの表示状態
     setSidebarVisible,
   } = useMindMapState();
 
-  const canvasRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // DOM要素への参照
+  const canvasRef = useRef<HTMLDivElement>(null); // メインキャンバス
+  const fileInputRef = useRef<HTMLInputElement>(null); // ファイル入力
 
+  // ノードの幅を計算する関数
   const calculateNodeWidth = useCallback((content: string, isRoot = false) => {
-    const padding = 24;
-    const minWidth = isRoot ? 80 : 60;
+    const padding = 24; // パディング
+    const minWidth = isRoot ? 80 : 60; // 最小幅（ルートノードは大きめ）
     
+    // 空のコンテンツの場合は最小幅を返す
     if (!content || content.trim() === '') {
       return minWidth;
     }
     
+    // Canvasを使ってテキストの実際の幅を測定
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
     if (context) {
+      // フォントサイズをルートノードと子ノードで変える
       context.font = isRoot ? 'bold 24px sans-serif' : '500 18px sans-serif';
       const textWidth = context.measureText(content).width;
       return Math.max(minWidth, textWidth + padding);
@@ -72,25 +75,14 @@ export const MindMapCanvas: React.FC = () => {
     return minWidth;
   }, []);
 
+  // マインドマップのレイアウトロジック（位置調整など）
   const {
     textMeasureRef,
-    measureTextWidth,
     getDescendants,
-    moveNodeGroup,
-    detectAndResolveCollisions,
-    detectGlobalYCollisions,
-    detectAndAdjustParentLevelSpacing,
-    triggerParentHierarchyAdjustment,
-    getOccupiedYRanges,
-    findClearYSpace,
     calculateBalancedChildPositions,
     moveDescendantsVertically,
+    applyHierarchicalYAdjustment,
     adjustChildPositionsAfterParentChange,
-    moveDescendants,
-    calculateChildrenCenter,
-    adjustParentToChildrenCenter,
-    adjustSiblingSpacing,
-    recursiveParentAdjustment,
     triggerFullLayoutAdjustment,
   } = useMindMapLogic(
     nodes,
@@ -98,17 +90,17 @@ export const MindMapCanvas: React.FC = () => {
     calculateNodeWidth
   );
 
+  // ノードの操作（作成、削除、編集など）
   const {
-    updateNodeWidth,
-    createChildNode,
-    createSiblingNode,
-    deleteNode,
-    updateNodeContent,
-    handleEditingContentChange,
-    selectNode,
-    startNodeEditing,
-    cancelEditing,
-    toggleChildrenVisibility,
+    createChildNode, // 子ノード作成
+    createSiblingNode, // 兄弟ノード作成
+    deleteNode, // ノード削除
+    updateNodeContent, // ノード内容更新
+    handleEditingContentChange, // 編集中テキスト変更
+    selectNode, // ノード選択
+    startNodeEditing, // ノード編集開始
+    cancelEditing, // 編集キャンセル
+    toggleChildrenVisibility, // 子ノードの表示/非表示切り替え
   } = useMindMapActions(
     nodes,
     setNodes,
@@ -117,26 +109,27 @@ export const MindMapCanvas: React.FC = () => {
     editingContent,
     setEditingContent,
     calculateNodeWidth,
+    getDescendants,
     calculateBalancedChildPositions,
     moveDescendantsVertically,
-    detectAndResolveCollisions,
+    applyHierarchicalYAdjustment,
     adjustChildPositionsAfterParentChange,
-    recursiveParentAdjustment,
     triggerFullLayoutAdjustment
   );
 
+  // マインドマップのユーティリティ機能
   const {
-    getVisibleNodes,
-    getExpandButtonPosition,
-    shouldShowExpandButton,
-    calculateConnections,
-    getDistance,
-    findNearestNode,
+    getVisibleNodes, // 表示可能ノードの取得
+    getExpandButtonPosition, // 展開ボタンの位置
+    shouldShowExpandButton, // 展開ボタンを表示するかどうか
+    calculateConnections, // 接続線の計算
+    findNearestNode, // 最も近いノードを見つける
   } = useMindMapUtils(nodes, calculateNodeWidth);
 
+  // インポート・エクスポート機能
   const {
-    exportMindMap,
-    importMindMap,
+    exportMindMap, // マインドマップをエクスポート
+    importMindMap, // マインドマップをインポート
   } = useMindMapImportExport(
     nodes,
     setNodes,
@@ -147,10 +140,12 @@ export const MindMapCanvas: React.FC = () => {
     calculateNodeWidth
   );
 
+  // ファイル選択ダイアログを開く
   const triggerImport = useCallback(() => {
     fileInputRef.current?.click();
   }, []);
 
+  // マウスダウンイベントハンドラー（ドラッグ開始）
   const handleMouseDown = useCallback((e: React.MouseEvent, nodeId?: string) => {
     e.preventDefault();
     const rect = canvasRef.current?.getBoundingClientRect();
@@ -160,6 +155,7 @@ export const MindMapCanvas: React.FC = () => {
     const clientY = e.clientY - rect.top;
 
     if (!nodeId) {
+      // キャンバスドラッグ開始
       setDragState({
         isDragging: true,
         dragType: 'canvas',
@@ -169,10 +165,12 @@ export const MindMapCanvas: React.FC = () => {
         initialY: viewState.offsetY,
       });
     } else {
+      // ノード選択
       selectNode(nodeId);
     }
   }, [nodes, viewState, selectNode, setDragState]);
 
+  // マウス移動イベントハンドラー（ドラッグ中）
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (!dragState?.isDragging) return;
 
@@ -185,6 +183,7 @@ export const MindMapCanvas: React.FC = () => {
     const deltaY = (clientY - dragState.startY) / viewState.scale;
 
     if (dragState.dragType === 'canvas') {
+      // キャンバスの移動
       setViewState(prev => ({
         ...prev,
         offsetX: dragState.initialX + deltaX,
@@ -193,45 +192,56 @@ export const MindMapCanvas: React.FC = () => {
     }
   }, [dragState, viewState.scale, setViewState]);
 
+  // マウスアップイベントハンドラー（ドラッグ終了）
   const handleMouseUp = useCallback(() => {
     setDragState(null);
   }, [setDragState]);
 
+  // ホイールイベントハンドラー（ズーム）
   const handleWheel = useCallback((e: WheelEvent) => {
     e.preventDefault();
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    const delta = e.deltaY > 0 ? 0.9 : 1.1; // ズーム倍率
     setViewState(prev => ({
       ...prev,
       scale: Math.max(MIN_SCALE, Math.min(MAX_SCALE, prev.scale * delta)),
     }));
   }, [setViewState]);
 
+  // キーボードイベントハンドラー
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     const editingNode = nodes.find(n => n.isEditing);
+    
+    // 編集中はEscapeキー以外は無視
     if (editingNode && e.key !== 'Escape') {
       return;
     }
 
+    // スラッシュキーでAIコマンド開始
     if (e.key === '/') {
       setShowAICommand(true);
       setAIPrompt('/ai ');
       return;
     }
 
+    // Escapeキーの処理
     if (e.key === 'Escape') {
       if (editingNode) {
+        // 編集をキャンセル
         cancelEditing(editingNode.id);
         return;
       }
       
       if (showAICommand) {
+        // AIコマンド入力を閉じる
         setShowAICommand(false);
         setAIPrompt('');
         return;
       }
       
+      // ナビゲーションモードの切り替え
       setNavigationMode(prev => !prev);
       
+      // ナビゲーションモードに入る時、選択ノードがなければ最初のノードを選択
       if (!navigationMode && nodes.length > 0) {
         const selectedNode = nodes.find(n => n.isSelected);
         if (!selectedNode) {
@@ -241,6 +251,7 @@ export const MindMapCanvas: React.FC = () => {
       return;
     }
     
+    // ナビゲーションモード時のキーボード操作
     if (navigationMode) {
       const selectedNode = nodes.find(n => n.isSelected);
       if (!selectedNode) return;
@@ -250,25 +261,26 @@ export const MindMapCanvas: React.FC = () => {
       let targetNodeId: string | null = null;
       
       switch (e.key) {
-        case 'ArrowUp':
+        case 'ArrowUp': // 上の近いノードを選択
           targetNodeId = findNearestNode(selectedNode, 'up');
           break;
-        case 'ArrowDown':
+        case 'ArrowDown': // 下の近いノードを選択
           targetNodeId = findNearestNode(selectedNode, 'down');
           break;
-        case 'ArrowLeft':
+        case 'ArrowLeft': // 左の近いノードを選択
           targetNodeId = findNearestNode(selectedNode, 'left');
           break;
-        case 'ArrowRight':
+        case 'ArrowRight': // 右の近いノードを選択
           targetNodeId = findNearestNode(selectedNode, 'right');
           break;
-        case ' ':
+        case ' ': // スペースキーで編集開始
           startNodeEditing(selectedNode.id);
           setNavigationMode(false);
           return;
         case 'Delete':
-        case 'Backspace':
+        case 'Backspace': // ノード削除
           if (selectedNode.parentId) {
+            // 削除後に選択する次のノードを探す
             const nextNodeId = findNearestNode(selectedNode, 'up') || 
                               findNearestNode(selectedNode, 'down') || 
                               findNearestNode(selectedNode, 'left') || 
@@ -277,6 +289,7 @@ export const MindMapCanvas: React.FC = () => {
             
             deleteNode(selectedNode.id);
             
+            // 次のノードを選択
             if (nextNodeId) {
               setTimeout(() => {
                 selectNode(nextNodeId);
@@ -284,12 +297,12 @@ export const MindMapCanvas: React.FC = () => {
             }
           }
           return;
-        case 'Tab':
+        case 'Tab': // Tabキーで子ノード作成
           e.preventDefault();
           createChildNode(selectedNode.id);
           setNavigationMode(false);
           return;
-        case 'Enter':
+        case 'Enter': // Enterキーで兄弟ノード作成
           if (selectedNode.parentId) {
             createSiblingNode(selectedNode.id);
             setNavigationMode(false);
@@ -297,36 +310,43 @@ export const MindMapCanvas: React.FC = () => {
           return;
       }
       
+      // 目標ノードがあれば選択
       if (targetNodeId) {
         selectNode(targetNodeId);
       }
     }
   }, [nodes, navigationMode, cancelEditing, selectNode, startNodeEditing, findNearestNode, deleteNode, createChildNode, createSiblingNode, showAICommand, setShowAICommand, setAIPrompt, setNavigationMode]);
   
+  // イベントリスナーの登録・削除
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    // ホイールイベントとキーボードイベントを登録
     canvas.addEventListener('wheel', handleWheel, { passive: false });
     document.addEventListener('keydown', handleKeyDown);
     
+    // クリーンアップ
     return () => {
       canvas.removeEventListener('wheel', handleWheel);
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [handleKeyDown, handleWheel]);
 
+  // AIコマンドの実行
   const handleAICommand = useCallback(async () => {
     if (!aiPrompt.startsWith('/ai ')) return;
     
-    const prompt = aiPrompt.substring(4);
+    const prompt = aiPrompt.substring(4); // '/ai 'を除去
     setShowAICommand(false);
     setAIPrompt('');
     
+    // 選択されたノードまたは最初のノードに子ノードを作成
     const selectedNode = nodes.find(n => n.isSelected) || nodes[0];
     if (selectedNode) {
       createChildNode(selectedNode.id);
       
+      // 新しいノードにAIプロンプトを設定
       setTimeout(() => {
         const newNode = nodes.find(n => n.isEditing);
         if (newNode) {
@@ -336,7 +356,9 @@ export const MindMapCanvas: React.FC = () => {
     }
   }, [aiPrompt, nodes, createChildNode, updateNodeContent, setShowAICommand, setAIPrompt]);
 
+  // ダッシュボードに戻る処理
   const handleBackToDashboard = () => {
+    // 未保存の変更があるかチェック
     if (hasUnsavedChanges) {
       const confirmLeave = window.confirm(
         'You have unsaved changes. Are you sure you want to leave? Your changes will be lost.'
@@ -346,6 +368,7 @@ export const MindMapCanvas: React.FC = () => {
     navigate('/dashboard');
   };
 
+  // ページを離れる時の警告処理
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (hasUnsavedChanges) {
@@ -376,10 +399,12 @@ export const MindMapCanvas: React.FC = () => {
     };
   }, [hasUnsavedChanges]);
 
+  // 接続線の更新
   useEffect(() => {
     setConnections(calculateConnections());
   }, [calculateConnections, setConnections]);
 
+  // ノード幅の更新
   useEffect(() => {
     setNodes(prev => prev.map(node => ({
       ...node,
@@ -387,17 +412,19 @@ export const MindMapCanvas: React.FC = () => {
     })));
   }, [calculateNodeWidth, setNodes]);
 
+  // 表示するノードを取得
   const visibleNodes = getVisibleNodes();
   
-
   return (
     <div className="h-screen flex flex-col bg-gray-50">
+      {/* テキスト幅測定用の隠し要素 */}
       <span
         ref={textMeasureRef}
         className="absolute -top-1000 left-0 opacity-0 pointer-events-none whitespace-nowrap"
         style={{ fontFamily: 'inherit' }}
       />
       
+      {/* ツールバー */}
       <Toolbar
         sidebarVisible={sidebarVisible}
         setSidebarVisible={setSidebarVisible}
@@ -408,6 +435,7 @@ export const MindMapCanvas: React.FC = () => {
         hasUnsavedChanges={hasUnsavedChanges}
       />
 
+      {/* ファイル入力（非表示） */}
       <input
         ref={fileInputRef}
         type="file"
@@ -417,10 +445,12 @@ export const MindMapCanvas: React.FC = () => {
       />
 
       <div className="flex flex-1 overflow-hidden">
+        {/* サイドバー */}
         {sidebarVisible && (
           <Sidebar currentMapId={currentMap?.id} />
         )}
 
+        {/* メインキャンバスエリア */}
         <div className="flex-1 relative bg-gray-100 overflow-hidden">
           <div
             ref={canvasRef}
@@ -429,6 +459,7 @@ export const MindMapCanvas: React.FC = () => {
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
           >
+            {/* 接続線を描画するSVG */}
             <svg
               className="absolute inset-0 w-full h-full pointer-events-none"
               style={{
@@ -442,6 +473,7 @@ export const MindMapCanvas: React.FC = () => {
               <Connections connections={connections} />
             </svg>
 
+            {/* ノードを配置するコンテナ */}
             <div
               className="absolute inset-0"
               style={{
@@ -449,12 +481,14 @@ export const MindMapCanvas: React.FC = () => {
                 transformOrigin: '0 0',
               }}
             >
+              {/* 各ノードをレンダリング */}
               {visibleNodes.map(node => {
                 const currentContent = node.isEditing ? (editingContent[node.id] || '') : node.content;
                 const currentWidth = node.width || calculateNodeWidth(currentContent, !node.parentId);
                 
                 return (
                   <div key={node.id}>
+                    {/* ノードコンポーネント */}
                     <NodeComponent
                       node={node}
                       currentContent={currentContent}
@@ -473,6 +507,7 @@ export const MindMapCanvas: React.FC = () => {
                       onSetNavigationMode={setNavigationMode}
                     />
                     
+                    {/* 展開/折りたたみボタン */}
                     <ExpandButton
                       node={node}
                       getExpandButtonPosition={getExpandButtonPosition}
@@ -487,8 +522,10 @@ export const MindMapCanvas: React.FC = () => {
         </div>
       </div>
 
+      {/* ナビゲーションモード表示 */}
       <NavigationModeDisplay navigationMode={navigationMode} />
 
+      {/* AIコマンド入力 */}
       <AICommandInput
         showAICommand={showAICommand}
         aiPrompt={aiPrompt}
@@ -500,8 +537,10 @@ export const MindMapCanvas: React.FC = () => {
         }}
       />
 
+      {/* フローティングアクションボタン */}
       <FloatingActionButton onShowAICommand={() => setShowAICommand(true)} />
 
+      {/* ズーム表示 */}
       <ZoomDisplay scale={viewState.scale} />
     </div>
   );

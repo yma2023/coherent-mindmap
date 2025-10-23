@@ -20,16 +20,16 @@ export const useMindMapState = () => {
   // 全てのノードの配列。これがマインドマップの基本的なデータ構造となる.
   const [nodes, setNodes] = useState<Node[]>([
     {
-      id: '1', // ユニークなID
-      x: 200, // X座標
-      y: 300, // Y座標
+      id: '1',                 // ユニークなID
+      x: 200,                  // X座標
+      y: 300,                  // Y座標
       content: 'メインアイデア', // ノードに表示されるテキスト
-      children: [], // 子ノードのIDの配列
-      isEditing: false, // 編集モードかどうか
-      isSelected: false, // 選択されているかどうか
-      isCollapsed: false, // 子ノードが折りたたまれているか
-      level: 0, // 階層レベル (ルートは0)
-      width: 0, // ノードの幅（テキストに応じて動的に計算）
+      children: [],           // 子ノードのIDの配列
+      isEditing: false,       // 編集モードかどうか
+      isSelected: false,      // 選択されているかどうか
+      isCollapsed: false,     // 子ノードが折りたたまれているか
+      level: 0,               // 階層レベル (ルートは0)
+      width: 0,               // ノードの幅（テキストに応じて動的に計算）
     },
   ]);
   
@@ -44,13 +44,13 @@ export const useMindMapState = () => {
   
   // ドラッグ操作の状態を管理.
   const [dragState, setDragState] = useState<{
-    isDragging: boolean; // ドラッグ中か
+    isDragging: boolean;         // ドラッグ中か
     dragType: 'node' | 'canvas'; // 何をドラッグしているか
-    nodeId?: string; // ドラッグ中のノードID
-    startX: number; // ドラッグ開始時のマウスX座標
-    startY: number; // ドラッグ開始時のマウスY座標
-    initialX: number; // ドラッグ開始時の要素のX座標
-    initialY: number; // ドラッグ開始時の要素のY座標
+    nodeId?: string;             // ドラッグ中のノードID
+    startX: number;              // ドラッグ開始時のマウスX座標
+    startY: number;              // ドラッグ開始時のマウスY座標
+    initialX: number;            // ドラッグ開始時の要素のX座標
+    initialY: number;            // ドラッグ開始時の要素のY座標
   } | null>(null);
   
   // キーボードでのノード間移動を行うナビゲーションモード.

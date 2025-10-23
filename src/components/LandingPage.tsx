@@ -6,20 +6,20 @@ import { useTranslation } from '../hooks/useTranslation';
 
 export const LandingPage: React.FC = () => {
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t, isJapanese } = useTranslation();
   const [isLoaded, setIsLoaded] = useState(false);
-  const [currentSlide, setCurrentSlide] = useState(0);
   const [scrollY, setScrollY] = useState(0);
   const [visibleSections, setVisibleSections] = useState<Set<string>>(new Set());
+  const [currentSlide, setCurrentSlide] = useState(0);
   
   // Refs for sections
-  const heroRef = useRef<HTMLDivElement>(null);
-  const featuresRef = useRef<HTMLDivElement>(null);
-  const aiSectionRef = useRef<HTMLDivElement>(null);
-  const collaborationSectionRef = useRef<HTMLDivElement>(null);
-  const performanceSectionRef = useRef<HTMLDivElement>(null);
-  const detailsRef = useRef<HTMLDivElement>(null);
-  const testimonialsRef = useRef<HTMLDivElement>(null);
+  const heroRef = useRef<HTMLElement>(null);
+  const featuresRef = useRef<HTMLElement>(null);
+  const aiSectionRef = useRef<HTMLElement>(null);
+  const collaborationSectionRef = useRef<HTMLElement>(null);
+  const performanceSectionRef = useRef<HTMLElement>(null);
+  const detailsRef = useRef<HTMLElement>(null);
+  const testimonialsRef = useRef<HTMLElement>(null);
 
   // スクロール監視とパララックス効果
   useEffect(() => {
@@ -72,14 +72,6 @@ export const LandingPage: React.FC = () => {
     const timer = setTimeout(() => setIsLoaded(true), 100);
     return () => clearTimeout(timer);
   }, []);
-
-  const handleLoginClick = () => {
-    navigate('/login');
-  };
-
-  const handleRegisterClick = () => {
-    navigate('/register');
-  };
 
   // 機能説明用の画像データ
   const featureImages = [
@@ -211,17 +203,17 @@ export const LandingPage: React.FC = () => {
               }}
             >
               <button
-                onClick={handleLoginClick}
+                onClick={() => navigate('/mindmap')}
                 className="group bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-8 py-4 rounded-xl font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-300 flex items-center space-x-3 hover:-translate-y-1"
               >
-                <span>{t('landing.loginButton')}</span>
+                <span>{t('landing.createMindMapButton')}</span>
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </button>
               <button
-                onClick={handleRegisterClick}
+                onClick={() => navigate('/dashboard')}
                 className="bg-white/80 backdrop-blur-sm hover:bg-white text-slate-700 hover:text-slate-800 px-8 py-4 rounded-xl font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-300 border border-white/50 hover:-translate-y-1"
               >
-                {t('landing.registerButton')}
+                {t('landing.viewDashboardButton')}
               </button>
             </div>
           </div>
@@ -235,11 +227,11 @@ export const LandingPage: React.FC = () => {
           <div className={`text-center mb-20 transition-all duration-1000 ${visibleSections.has('features') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
             <h3 className="text-4xl md:text-6xl font-bold text-slate-800 mb-8">
               <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                Powerful Features
+              {t('landing.powerfullFeatures')}
               </span>
             </h3>
             <p className="text-xl md:text-2xl text-slate-600 max-w-4xl mx-auto leading-relaxed">
-              Experience the next generation of mind mapping with AI-powered tools and seamless collaboration
+            {t('landing.powerfullFeaturesSubtitle')}
             </p>
           </div>
 
@@ -325,11 +317,11 @@ export const LandingPage: React.FC = () => {
               </div>
               <h3 className="text-5xl md:text-6xl font-bold text-slate-800 mb-8">
                 <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                  AI Assistant
+                {t('landing.aiAssistant')}
                 </span>
               </h3>
               <p className="text-xl md:text-2xl text-slate-600 max-w-4xl mx-auto leading-relaxed">
-                革新的なAI技術があなたの思考を拡張し、創造性を無限に広げます
+              {t('landing.aiAssistantDescription')}
               </p>
             </div>
 
@@ -338,9 +330,9 @@ export const LandingPage: React.FC = () => {
                 <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl flex items-center justify-center mb-6">
                   <Lightbulb className="w-8 h-8 text-white" />
                 </div>
-                <h4 className="text-xl font-bold text-slate-800 mb-4">自動アイデア生成</h4>
+                <h4 className="text-xl font-bold text-slate-800 mb-4">{t('landing.autoIdeaGeneration')}</h4>
                 <p className="text-slate-600 leading-relaxed">
-                  キーワードを入力するだけで、AIが関連するアイデアやコンセプトを自動生成。思考の幅を広げ、新しい視点を提供します。
+                  {t('landing.autoIdeaGenerationDescription')}
                 </p>
               </div>
 
@@ -348,9 +340,9 @@ export const LandingPage: React.FC = () => {
                 <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center mb-6">
                   <MessageSquare className="w-8 h-8 text-white" />
                 </div>
-                <h4 className="text-xl font-bold text-slate-800 mb-4">インテリジェント要約</h4>
+                <h4 className="text-xl font-bold text-slate-800 mb-4">{t('landing.intelligentSummary')}</h4>
                 <p className="text-slate-600 leading-relaxed">
-                  複雑な情報を瞬時に整理し、重要なポイントを抽出。長文の資料も数秒で理解しやすいマインドマップに変換します。
+                  {t('landing.intelligentSummaryDescription')}
                 </p>
               </div>
 
@@ -358,9 +350,9 @@ export const LandingPage: React.FC = () => {
                 <div className="w-16 h-16 bg-gradient-to-br from-rose-500 to-rose-600 rounded-2xl flex items-center justify-center mb-6">
                   <Target className="w-8 h-8 text-white" />
                 </div>
-                <h4 className="text-xl font-bold text-slate-800 mb-4">コンテキスト理解</h4>
+                <h4 className="text-xl font-bold text-slate-800 mb-4">{t('landing.contextUnderstanding')}</h4>
                 <p className="text-slate-600 leading-relaxed">
-                  プロジェクトの文脈を理解し、最適な構造とレイアウトを提案。あなたの思考パターンを学習し、パーソナライズされた支援を提供します。
+                  {t('landing.contextUnderstandingDescription')}
                 </p>
               </div>
             </div>
@@ -368,12 +360,13 @@ export const LandingPage: React.FC = () => {
             <div className="text-center">
               <div className="inline-flex items-center space-x-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-4 rounded-2xl shadow-xl">
                 <Sparkles className="w-6 h-6" />
-                <span className="text-lg font-semibold">AIの力で思考を加速させましょう</span>
+                <span className="text-lg font-semibold">{t('landing.aiAssistant')}</span>
               </div>
             </div>
           </div>
         </div>
       </section>
+
 
       {/* リアルタイム共同編集セクション */}
       <section ref={collaborationSectionRef} className="relative z-10 py-32 px-6 min-h-screen bg-gradient-to-br from-purple-50 to-pink-100">
@@ -385,11 +378,11 @@ export const LandingPage: React.FC = () => {
               </div>
               <h3 className="text-5xl md:text-6xl font-bold text-slate-800 mb-8">
                 <span className="bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                  Real-time Collaboration
+                  {t('landing.realTimeCollaboration')}
                 </span>
               </h3>
               <p className="text-xl md:text-2xl text-slate-600 max-w-4xl mx-auto leading-relaxed">
-                チーム全体の創造性を結集し、リアルタイムで協力してアイデアを形にします
+                {t('landing.realTimeCollaborationDescription')}
               </p>
             </div>
 
@@ -401,9 +394,9 @@ export const LandingPage: React.FC = () => {
                       <Globe className="w-8 h-8 text-white" />
                     </div>
                     <div>
-                      <h4 className="text-2xl font-bold text-slate-800 mb-4">グローバル同期</h4>
+                      <h4 className="text-2xl font-bold text-slate-800 mb-4">{t('landing.globalSync')}</h4>
                       <p className="text-slate-600 leading-relaxed text-lg">
-                        世界中のどこからでも、瞬時に同じマインドマップを編集。変更は即座に全メンバーに反映され、常に最新の状態を共有できます。
+                        {t('landing.globalSyncDescription')}
                       </p>
                     </div>
                   </div>
@@ -413,9 +406,9 @@ export const LandingPage: React.FC = () => {
                       <Shield className="w-8 h-8 text-white" />
                     </div>
                     <div>
-                      <h4 className="text-2xl font-bold text-slate-800 mb-4">権限管理</h4>
+                      <h4 className="text-2xl font-bold text-slate-800 mb-4">{t('landing.permissionManagement')}</h4>
                       <p className="text-slate-600 leading-relaxed text-lg">
-                        細かな権限設定により、閲覧のみ、編集可能、管理者など、役割に応じたアクセス制御を実現。セキュアな共同作業環境を提供します。
+                        {t('landing.permissionManagementDescription')}
                       </p>
                     </div>
                   </div>
@@ -425,9 +418,9 @@ export const LandingPage: React.FC = () => {
                       <MessageSquare className="w-8 h-8 text-white" />
                     </div>
                     <div>
-                      <h4 className="text-2xl font-bold text-slate-800 mb-4">リアルタイムコメント</h4>
+                      <h4 className="text-2xl font-bold text-slate-800 mb-4">{t('landing.realTimeComments')}</h4>
                       <p className="text-slate-600 leading-relaxed text-lg">
-                        各ノードに直接コメントを追加し、チームメンバーとディスカッション。アイデアの背景や意図を共有し、より深い理解を促進します。
+                        {t('landing.realTimeCommentsDescription')}
                       </p>
                     </div>
                   </div>
@@ -448,21 +441,27 @@ export const LandingPage: React.FC = () => {
                         <span className="text-white text-sm font-semibold">C</span>
                       </div>
                     </div>
-                    <span className="text-slate-600 font-medium">3人が編集中</span>
+                    <span className="text-slate-600 font-medium">{isJapanese ? '3人が編集中' : '3 people editing'}</span>
                     <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
                   </div>
                   <div className="space-y-4">
                     <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r-lg">
-                      <p className="text-sm text-blue-800 font-medium">Alice がノード「マーケティング戦略」を追加しました</p>
-                      <p className="text-xs text-blue-600 mt-1">2分前</p>
+                      <p className="text-sm text-blue-800 font-medium">
+                        {isJapanese ? 'Alice がノード「マーケティング戦略」を追加しました' : 'Alice added node "Marketing Strategy"'}
+                      </p>
+                      <p className="text-xs text-blue-600 mt-1">{isJapanese ? '2分前' : '2 minutes ago'}</p>
                     </div>
                     <div className="bg-purple-50 border-l-4 border-purple-500 p-4 rounded-r-lg">
-                      <p className="text-sm text-purple-800 font-medium">Bob がコメントを追加: 「この部分をもう少し詳しく...」</p>
-                      <p className="text-xs text-purple-600 mt-1">5分前</p>
+                      <p className="text-sm text-purple-800 font-medium">
+                        {isJapanese ? 'Bob がコメントを追加: 「この部分をもう少し詳しく...」' : 'Bob added comment: "Let\'s elaborate on this part..."'}
+                      </p>
+                      <p className="text-xs text-purple-600 mt-1">{isJapanese ? '5分前' : '5 minutes ago'}</p>
                     </div>
                     <div className="bg-emerald-50 border-l-4 border-emerald-500 p-4 rounded-r-lg">
-                      <p className="text-sm text-emerald-800 font-medium">Carol が接続を作成しました</p>
-                      <p className="text-xs text-emerald-600 mt-1">8分前</p>
+                      <p className="text-sm text-emerald-800 font-medium">
+                        {isJapanese ? 'Carol が接続を作成しました' : 'Carol created a connection'}
+                      </p>
+                      <p className="text-xs text-emerald-600 mt-1">{isJapanese ? '8分前' : '8 minutes ago'}</p>
                     </div>
                   </div>
                 </div>
@@ -471,6 +470,7 @@ export const LandingPage: React.FC = () => {
           </div>
         </div>
       </section>
+
 
       {/* 高速パフォーマンスセクション */}
       <section ref={performanceSectionRef} className="relative z-10 py-32 px-6 min-h-screen bg-gradient-to-br from-indigo-50 to-blue-100">
@@ -482,11 +482,11 @@ export const LandingPage: React.FC = () => {
               </div>
               <h3 className="text-5xl md:text-6xl font-bold text-slate-800 mb-8">
                 <span className="bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent">
-                  High Performance
+                  {t('landing.highPerformance')}
                 </span>
               </h3>
               <p className="text-xl md:text-2xl text-slate-600 max-w-4xl mx-auto leading-relaxed">
-                最先端の技術により、大規模なマインドマップでも瞬時に反応する高速パフォーマンスを実現
+                {t('landing.highPerformanceDescription')}
               </p>
             </div>
 
@@ -496,9 +496,9 @@ export const LandingPage: React.FC = () => {
                   <Zap className="w-10 h-10 text-white" />
                 </div>
                 <div className="text-4xl font-bold text-slate-800 mb-2">{"< 50ms"}</div>
-                <div className="text-lg text-slate-600 font-medium mb-4">応答時間</div>
+                <div className="text-lg text-slate-600 font-medium mb-4">{t('landing.responseTime')}</div>
                 <p className="text-slate-600 leading-relaxed">
-                  どんな操作も50ミリ秒以内で反応。ストレスフリーな編集体験を提供します。
+                  {t('landing.responseTimeDescription')}
                 </p>
               </div>
 
@@ -507,9 +507,9 @@ export const LandingPage: React.FC = () => {
                   <Layers className="w-10 h-10 text-white" />
                 </div>
                 <div className="text-4xl font-bold text-slate-800 mb-2">10,000+</div>
-                <div className="text-lg text-slate-600 font-medium mb-4">ノード対応</div>
+                <div className="text-lg text-slate-600 font-medium mb-4">{t('landing.nodeSupport')}</div>
                 <p className="text-slate-600 leading-relaxed">
-                  大規模なプロジェクトでも快適に動作。数万のノードを持つマインドマップも軽快に処理します。
+                  {t('landing.nodeSupportDescription')}
                 </p>
               </div>
 
@@ -518,9 +518,9 @@ export const LandingPage: React.FC = () => {
                   <Cloud className="w-10 h-10 text-white" />
                 </div>
                 <div className="text-4xl font-bold text-slate-800 mb-2">99.9%</div>
-                <div className="text-lg text-slate-600 font-medium mb-4">稼働率</div>
+                <div className="text-lg text-slate-600 font-medium mb-4">{t('landing.uptime')}</div>
                 <p className="text-slate-600 leading-relaxed">
-                  クラウドインフラにより高い可用性を実現。いつでもどこでも安心してご利用いただけます。
+                  {t('landing.uptimeDescription')}
                 </p>
               </div>
             </div>
@@ -528,15 +528,15 @@ export const LandingPage: React.FC = () => {
             <div className="bg-white/90 backdrop-blur-sm rounded-3xl p-12 shadow-2xl border border-white/50">
               <div className="grid lg:grid-cols-2 gap-12 items-center">
                 <div>
-                  <h4 className="text-3xl font-bold text-slate-800 mb-6">最適化されたアーキテクチャ</h4>
+                  <h4 className="text-3xl font-bold text-slate-800 mb-6">{t('landing.optimizedArchitecture')}</h4>
                   <div className="space-y-6">
                     <div className="flex items-start space-x-4">
                       <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl flex items-center justify-center flex-shrink-0">
                         <Cpu className="w-6 h-6 text-white" />
                       </div>
                       <div>
-                        <h5 className="text-lg font-semibold text-slate-800 mb-2">エッジコンピューティング</h5>
-                        <p className="text-slate-600">ユーザーに最も近いサーバーで処理を実行し、レイテンシを最小限に抑制。</p>
+                        <h5 className="text-lg font-semibold text-slate-800 mb-2">{t('landing.edgeComputing')}</h5>
+                        <p className="text-slate-600">{t('landing.edgeComputingDescription')}</p>
                       </div>
                     </div>
                     <div className="flex items-start space-x-4">
@@ -544,8 +544,8 @@ export const LandingPage: React.FC = () => {
                         <Layers className="w-6 h-6 text-white" />
                       </div>
                       <div>
-                        <h5 className="text-lg font-semibold text-slate-800 mb-2">インクリメンタル同期</h5>
-                        <p className="text-slate-600">変更された部分のみを同期し、無駄なデータ転送を削減。</p>
+                        <h5 className="text-lg font-semibold text-slate-800 mb-2">{t('landing.incrementalSync')}</h5>
+                        <p className="text-slate-600">{t('landing.incrementalSyncDescription')}</p>
                       </div>
                     </div>
                     <div className="flex items-start space-x-4">
@@ -553,8 +553,8 @@ export const LandingPage: React.FC = () => {
                         <Zap className="w-6 h-6 text-white" />
                       </div>
                       <div>
-                        <h5 className="text-lg font-semibold text-slate-800 mb-2">WebAssembly最適化</h5>
-                        <p className="text-slate-600">重い処理をWebAssemblyで実装し、ネイティブレベルの性能を実現。</p>
+                        <h5 className="text-lg font-semibold text-slate-800 mb-2">{t('landing.webAssemblyOptimization')}</h5>
+                        <p className="text-slate-600">{t('landing.webAssemblyOptimizationDescription')}</p>
                       </div>
                     </div>
                   </div>
@@ -565,28 +565,28 @@ export const LandingPage: React.FC = () => {
                       <div className="w-3 h-3 bg-red-500 rounded-full"></div>
                       <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
                       <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                      <span className="text-slate-400 text-sm ml-4">Performance Monitor</span>
+                      <span className="text-slate-400 text-sm ml-4">{isJapanese ? 'パフォーマンスモニター' : 'Performance Monitor'}</span>
                     </div>
                     <div className="space-y-4 font-mono text-sm">
                       <div className="flex justify-between">
-                        <span className="text-green-400">CPU Usage:</span>
+                        <span className="text-green-400">{isJapanese ? 'CPU使用率:' : 'CPU Usage:'}</span>
                         <span>12%</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-blue-400">Memory:</span>
+                        <span className="text-blue-400">{isJapanese ? 'メモリ:' : 'Memory:'}</span>
                         <span>245MB / 2GB</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-purple-400">Response Time:</span>
+                        <span className="text-purple-400">{isJapanese ? '応答時間:' : 'Response Time:'}</span>
                         <span className="text-green-400">23ms</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-orange-400">Active Nodes:</span>
+                        <span className="text-orange-400">{isJapanese ? 'アクティブノード:' : 'Active Nodes:'}</span>
                         <span>1,247</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-pink-400">Sync Status:</span>
-                        <span className="text-green-400">✓ Real-time</span>
+                        <span className="text-pink-400">{isJapanese ? '同期状態:' : 'Sync Status:'}</span>
+                        <span className="text-green-400">{isJapanese ? '✓ リアルタイム' : '✓ Real-time'}</span>
                       </div>
                     </div>
                   </div>
@@ -604,11 +604,11 @@ export const LandingPage: React.FC = () => {
             <div className="text-center mb-20">
               <h3 className="text-4xl md:text-5xl font-bold text-slate-800 mb-8">
                 <span className="bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent">
-                  すべてのデバイスで、完璧な体験を
+                  {t('landing.perfectExperienceAllDevices')}
                 </span>
               </h3>
               <p className="text-xl text-slate-600 max-w-4xl mx-auto leading-relaxed">
-                デスクトップからモバイルまで、あらゆるデバイスで最適化された体験を提供
+                {t('landing.perfectExperienceAllDevicesDescription')}
               </p>
             </div>
 
@@ -617,32 +617,32 @@ export const LandingPage: React.FC = () => {
                 <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-2xl flex items-center justify-center mb-6 mx-auto">
                   <Monitor className="w-8 h-8 text-white" />
                 </div>
-                <h3 className="text-xl font-semibold text-slate-800 mb-4">デスクトップ</h3>
-                <p className="text-slate-600 leading-relaxed">大画面での快適な編集体験。キーボードショートカットで効率的な作業が可能</p>
+                <h3 className="text-xl font-semibold text-slate-800 mb-4">{t('landing.desktop')}</h3>
+                <p className="text-slate-600 leading-relaxed">{t('landing.desktopDescription')}</p>
               </div>
               
               <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-white/50 hover:shadow-xl transition-all duration-300 hover:-translate-y-2 text-center">
                 <div className="w-16 h-16 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-2xl flex items-center justify-center mb-6 mx-auto">
                   <Smartphone className="w-8 h-8 text-white" />
                 </div>
-                <h3 className="text-xl font-semibold text-slate-800 mb-4">モバイル</h3>
-                <p className="text-slate-600 leading-relaxed">タッチ操作に最適化されたUI。外出先でもアイデアを逃さずキャッチ</p>
+                <h3 className="text-xl font-semibold text-slate-800 mb-4">{t('landing.mobile')}</h3>
+                <p className="text-slate-600 leading-relaxed">{t('landing.mobileDescription')}</p>
               </div>
               
               <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-white/50 hover:shadow-xl transition-all duration-300 hover:-translate-y-2 text-center">
                 <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center mb-6 mx-auto">
                   <Cloud className="w-8 h-8 text-white" />
                 </div>
-                <h3 className="text-xl font-semibold text-slate-800 mb-4">クラウド同期</h3>
-                <p className="text-slate-600 leading-relaxed">すべてのデバイス間で自動同期。どこからでも最新の状態にアクセス可能</p>
+                <h3 className="text-xl font-semibold text-slate-800 mb-4">{t('landing.cloudSync')}</h3>
+                <p className="text-slate-600 leading-relaxed">{t('landing.cloudSyncDescription')}</p>
               </div>
               
               <div className="bg-white/70 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-white/50 hover:shadow-xl transition-all duration-300 hover:-translate-y-2 text-center">
                 <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl flex items-center justify-center mb-6 mx-auto">
                   <Globe className="w-8 h-8 text-white" />
                 </div>
-                <h3 className="text-xl font-semibold text-slate-800 mb-4">オフライン対応</h3>
-                <p className="text-slate-600 leading-relaxed">インターネット接続がなくても作業継続。接続復旧時に自動同期</p>
+                <h3 className="text-xl font-semibold text-slate-800 mb-4">{t('landing.offlineSupport')}</h3>
+                <p className="text-slate-600 leading-relaxed">{t('landing.offlineSupportDescription')}</p>
               </div>
             </div>
           </div>
@@ -655,10 +655,10 @@ export const LandingPage: React.FC = () => {
           <div className={`transition-all duration-1000 ${visibleSections.has('testimonials') ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'}`}>
             <div className="text-center mb-20">
               <h3 className="text-4xl md:text-5xl font-bold text-slate-800 mb-8">
-                世界中のユーザーから愛用されています
+                {t('landing.lovedByUsersWorldwide')}
               </h3>
               <p className="text-xl text-slate-600 max-w-4xl mx-auto leading-relaxed">
-                100万人以上のユーザーがMindFlowで創造性を発揮しています
+                {t('landing.lovedByUsersWorldwideDescription')}
               </p>
             </div>
 
@@ -670,15 +670,15 @@ export const LandingPage: React.FC = () => {
                   ))}
                 </div>
                 <p className="text-slate-700 leading-relaxed mb-6 text-lg">
-                  "MindFlowのAI機能は本当に革新的です。アイデア出しの時間が半分になり、より創造的な作業に集中できるようになりました。"
+                  {t('landing.testimonial1')}
                 </p>
                 <div className="flex items-center space-x-4">
                   <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-full flex items-center justify-center">
                     <span className="text-white font-semibold">田</span>
                   </div>
                   <div>
-                    <div className="font-semibold text-slate-800">田中 美咲</div>
-                    <div className="text-slate-600 text-sm">プロダクトマネージャー</div>
+                    <div className="font-semibold text-slate-800">{t('landing.testimonial1Author')}</div>
+                    <div className="text-slate-600 text-sm">{t('landing.testimonial1Role')}</div>
                   </div>
                 </div>
               </div>
@@ -690,15 +690,15 @@ export const LandingPage: React.FC = () => {
                   ))}
                 </div>
                 <p className="text-slate-700 leading-relaxed mb-6 text-lg">
-                  "チーム全体でリアルタイムに編集できるのが素晴らしい。リモートワークでも、まるで同じ部屋にいるような感覚で協力できます。"
+                  {t('landing.testimonial2')}
                 </p>
                 <div className="flex items-center space-x-4">
                   <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-full flex items-center justify-center">
                     <span className="text-white font-semibold">S</span>
                   </div>
                   <div>
-                    <div className="font-semibold text-slate-800">Sarah Johnson</div>
-                    <div className="text-slate-600 text-sm">デザインディレクター</div>
+                    <div className="font-semibold text-slate-800">{t('landing.testimonial2Author')}</div>
+                    <div className="text-slate-600 text-sm">{t('landing.testimonial2Role')}</div>
                   </div>
                 </div>
               </div>
@@ -710,15 +710,15 @@ export const LandingPage: React.FC = () => {
                   ))}
                 </div>
                 <p className="text-slate-700 leading-relaxed mb-6 text-lg">
-                  "大規模なプロジェクトでも動作が軽快で、ストレスを感じません。パフォーマンスの良さに驚いています。"
+                  {t('landing.testimonial3')}
                 </p>
                 <div className="flex items-center space-x-4">
                   <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
                     <span className="text-white font-semibold">李</span>
                   </div>
                   <div>
-                    <div className="font-semibold text-slate-800">李 志明</div>
-                    <div className="text-slate-600 text-sm">エンジニアリングマネージャー</div>
+                    <div className="font-semibold text-slate-800">{t('landing.testimonial3Author')}</div>
+                    <div className="text-slate-600 text-sm">{t('landing.testimonial3Role')}</div>
                   </div>
                 </div>
               </div>
@@ -728,17 +728,17 @@ export const LandingPage: React.FC = () => {
               <div className="inline-flex items-center space-x-8 bg-white/90 backdrop-blur-sm px-12 py-8 rounded-3xl shadow-xl border border-white/50">
                 <div className="text-center">
                   <div className="text-4xl font-bold text-slate-800 mb-2">1M+</div>
-                  <div className="text-slate-600">アクティブユーザー</div>
+                  <div className="text-slate-600">{t('landing.activeUsers')}</div>
                 </div>
                 <div className="w-px h-16 bg-slate-300"></div>
                 <div className="text-center">
                   <div className="text-4xl font-bold text-slate-800 mb-2">50M+</div>
-                  <div className="text-slate-600">作成されたマインドマップ</div>
+                  <div className="text-slate-600">{t('landing.createdMindMaps')}</div>
                 </div>
                 <div className="w-px h-16 bg-slate-300"></div>
                 <div className="text-center">
                   <div className="text-4xl font-bold text-slate-800 mb-2">99.9%</div>
-                  <div className="text-slate-600">顧客満足度</div>
+                  <div className="text-slate-600">{t('landing.customerSatisfaction')}</div>
                 </div>
               </div>
             </div>
@@ -757,22 +757,22 @@ export const LandingPage: React.FC = () => {
               <h3 className="text-3xl font-bold">MindFlow</h3>
             </div>
             <p className="text-slate-400 text-lg mb-8 max-w-2xl mx-auto">
-              思考を可視化し、創造性を無限に広げる次世代マインドマッピングツール
+              {t('landing.visualizeThoughts')}
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
               <button
-                onClick={handleLoginClick}
+                onClick={() => navigate('/mindmap')}
                 className="group bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-8 py-4 rounded-xl font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-300 flex items-center space-x-3 hover:-translate-y-1"
               >
-                <span>今すぐ始める</span>
+                <span>{t('landing.createMindMapButton')}</span>
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </button>
               <button
-                onClick={handleRegisterClick}
+                onClick={() => navigate('/dashboard')}
                 className="bg-slate-800 hover:bg-slate-700 text-white px-8 py-4 rounded-xl font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-300 border border-slate-700 hover:-translate-y-1"
               >
-                無料で試す
+                {t('landing.viewDashboardButton')}
               </button>
             </div>
           </div>
@@ -781,9 +781,9 @@ export const LandingPage: React.FC = () => {
             <div className="flex flex-col md:flex-row justify-between items-center">
               <p className="text-slate-400 text-sm mb-4 md:mb-0">{t('landing.footer')}</p>
               <div className="flex space-x-8 text-sm text-slate-400">
-                <a href="#" className="hover:text-white transition-colors">プライバシーポリシー</a>
-                <a href="#" className="hover:text-white transition-colors">利用規約</a>
-                <a href="#" className="hover:text-white transition-colors">お問い合わせ</a>
+                <a href="#" className="hover:text-white transition-colors">{t('landing.privacyPolicy')}</a>
+                <a href="#" className="hover:text-white transition-colors">{t('landing.termsOfService')}</a>
+                <a href="#" className="hover:text-white transition-colors">{t('landing.contact')}</a>
               </div>
             </div>
           </div>

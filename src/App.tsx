@@ -38,81 +38,11 @@ function App() {
         {/* ランディングページ（エントリー画面） */}
         <Route path="/" element={<LandingPage />} />
         
-        {/* Public routes (redirect to dashboard if authenticated) */}
-        <Route 
-          path="/login" 
-          element={
-            <ProtectedRoute requireAuth={false}>
-              <LoginForm />
-            </ProtectedRoute>
-          } 
-        />
-        <Route 
-          path="/register" 
-          element={
-            <ProtectedRoute requireAuth={false}>
-              <RegisterForm />
-            </ProtectedRoute>
-          } 
-        />
-        <Route 
-          path="/forgot-password" 
-          element={
-            <ProtectedRoute requireAuth={false}>
-              <ForgotPasswordForm />
-            </ProtectedRoute>
-          } 
-        />
-        <Route 
-          path="/reset-password" 
-          element={
-            <ProtectedRoute requireAuth={false}>
-              <ResetPasswordForm />
-            </ProtectedRoute>
-          } 
-        />
-        
-        {/* Protected routes (require authentication) */}
-        <Route 
-          path="/dashboard" 
-          element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          } 
-        />
-        <Route 
-          path="/profile" 
-          element={
-            <ProtectedRoute>
-              <UserProfile />
-            </ProtectedRoute>
-          } 
-        />
-        <Route 
-          path="/mindmap" 
-          element={
-            <ProtectedRoute>
-              <MindMapApp />
-            </ProtectedRoute>
-          } 
-        />
-        <Route 
-          path="/interactive" 
-          element={
-            <ProtectedRoute>
-              <AdvancedMindMap />
-            </ProtectedRoute>
-          } 
-        />
-        <Route 
-          path="/advanced-mindmap" 
-          element={
-            <ProtectedRoute>
-              <AdvancedMindMap />
-            </ProtectedRoute>
-          } 
-        />
+        {/* Public routes - no authentication required */}
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/mindmap" element={<MindMapApp />} />
+        <Route path="/interactive" element={<AdvancedMindMap />} />
+        <Route path="/advanced-mindmap" element={<AdvancedMindMap />} />
         
         {/* Default redirect */}
         <Route path="/home" element={<Navigate to="/dashboard" replace />} />

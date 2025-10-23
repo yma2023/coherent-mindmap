@@ -1,6 +1,6 @@
 import React from 'react';
-import { Plus, X, ChevronDown, ChevronRight, Download, Upload, Save, FolderOpen, Zap, ArrowLeft, Menu, Home, Brain, Search, Map, Settings, Share2, Star, Clock, Users } from 'lucide-react';
-import { Node, Connection, ViewState } from './types';
+import { Plus, X, Download, Upload, Zap, ArrowLeft, Menu, Home, Brain, Search, Map, Settings, Share2, Star, Clock, Users } from 'lucide-react';
+import { Node, Connection } from './types';
 import { LanguageSwitcher } from '../LanguageSwitcher';
 
 interface ToolbarProps {
@@ -199,7 +199,6 @@ interface NodeComponentProps {
 
 export const NodeComponent: React.FC<NodeComponentProps> = ({
   node,
-  currentContent,
   currentWidth,
   navigationMode,
   dragState,

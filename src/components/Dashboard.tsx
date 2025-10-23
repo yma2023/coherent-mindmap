@@ -83,7 +83,7 @@ export const Dashboard: React.FC = () => {
         {/* Welcome Section */}
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-slate-800 mb-2">
-            {t('dashboard.welcomeBack')}, {profile?.full_name || t('dashboard.welcomeThere')}!
+            {t('dashboard.welcomeBack')} {profile?.full_name || t('dashboard.welcomeThere')}
           </h2>
           <p className="text-slate-600 text-lg">
             {t('dashboard.readyToCreate')}
@@ -109,7 +109,7 @@ export const Dashboard: React.FC = () => {
           </button>
 
           <button
-            onClick={() => navigate('/advanced-mindmap')}
+            onClick={handleCreateMindMap}
             className="bg-gradient-to-br from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white p-6 rounded-2xl transition-all duration-300 text-left group shadow-lg hover:shadow-xl hover:-translate-y-1"
           >
             <div className="flex items-center justify-between mb-4">
@@ -118,9 +118,9 @@ export const Dashboard: React.FC = () => {
               </div>
               <div className="opacity-0 group-hover:opacity-100 transition-opacity text-2xl">→</div>
             </div>
-            <h3 className="text-xl font-semibold mb-2">{t('dashboard.advancedMindMap')}</h3>
+            <h3 className="text-xl font-semibold mb-2">{t('dashboard.createNewMindMap')}</h3>
             <p className="text-purple-100">
-              {t('dashboard.fullFeatured')}
+              {t('dashboard.startWithBlank')}
             </p>
           </button>
 
