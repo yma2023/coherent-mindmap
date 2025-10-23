@@ -1,19 +1,10 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './stores/authStore';
-import { ProtectedRoute } from './components/auth/ProtectedRoute';
-import { LoginForm } from './components/auth/LoginForm';
-import { RegisterForm } from './components/auth/RegisterForm';
-import { ForgotPasswordForm } from './components/auth/ForgotPasswordForm';
-import { ResetPasswordForm } from './components/auth/ResetPasswordForm';
-import { UserProfile } from './components/auth/UserProfile';
 import { LandingPage } from './components/LandingPage';
 import { Dashboard } from './components/Dashboard';
 import { MindMapCanvas } from './components/MindMapCanvas';
-import { InteractiveNodeCanvas } from './components/InteractiveNodeCanvas';
 import { AdvancedMindMap } from './components/AdvancedMindMap';
-import { LeftSidebar, RightSidebar } from './components/layout/Sidebar';
-import { Toolbar } from './components/layout/Toolbar';
 import '@xyflow/react/dist/style.css';
 
 const MindMapApp: React.FC = () => {

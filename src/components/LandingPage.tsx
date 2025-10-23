@@ -154,7 +154,7 @@ export const LandingPage: React.FC = () => {
                 className="text-2xl font-bold text-slate-800 transition-all duration-300"
                 style={{ fontSize: `${2 - scrollY * 0.001}rem` }}
               >
-                MindFlow
+                SOZO MAP
               </h1>
               <div className="flex items-center space-x-2 mt-1">
                 <div className="flex items-center space-x-1 bg-gradient-to-r from-amber-400 to-orange-400 text-white px-2 py-1 rounded-full text-xs font-semibold">
@@ -754,7 +754,7 @@ export const LandingPage: React.FC = () => {
               <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center">
                 <Brain className="w-7 h-7 text-white" />
               </div>
-              <h3 className="text-3xl font-bold">MindFlow</h3>
+              <h3 className="text-3xl font-bold">SOZO MAP</h3>
             </div>
             <p className="text-slate-400 text-lg mb-8 max-w-2xl mx-auto">
               {t('landing.visualizeThoughts')}

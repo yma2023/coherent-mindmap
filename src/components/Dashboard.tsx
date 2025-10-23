@@ -50,7 +50,7 @@ export const Dashboard: React.FC = () => {
               <div className="h-10 w-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
                 <Brain className="h-6 w-6 text-white" />
               </div>
-              <h1 className="ml-3 text-xl font-bold text-slate-800">MindFlow</h1>
+              <h1 className="ml-3 text-xl font-bold text-slate-800">SOZO MAP</h1>
             </div>
             
             <div className="flex items-center space-x-4">
