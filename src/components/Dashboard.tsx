@@ -1,9 +1,10 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Map, Users, Clock, Settings, LogOut, Brain, BarChart3, Zap } from 'lucide-react';
+import { Plus, Map, Users, Clock, LogOut, Brain, BarChart3, Zap } from 'lucide-react';
+
 import { useAuthStore } from '../stores/authStore';
 import { useTranslation } from '../hooks/useTranslation';
-import { LanguageSwitcher } from './LanguageSwitcher';
+import { LanguageSwitcher } from './language/LanguageSwitcher';
 
 export const Dashboard: React.FC = () => {
   const { t } = useTranslation();
@@ -35,9 +36,9 @@ export const Dashboard: React.FC = () => {
 
   // Mock data for demonstration
   const recentMaps = [
-    { id: '1', name: 'Project Strategy', nodes: 12, updated: '2 hours ago', collaborators: 3 },
-    { id: '2', name: 'Marketing Plan', nodes: 8, updated: '1 day ago', collaborators: 2 },
-    { id: '3', name: 'Team Structure', nodes: 15, updated: '3 days ago', collaborators: 5 },
+    { id: '1', name: 'Sample Mindmap', nodes: 0, updated: '0 hours ago', collaborators: 0 },
+    { id: '2', name: 'Sample Mindmap', nodes: 0, updated: '0 day ago', collaborators: 0 },
+    { id: '3', name: 'Sample Mindmap', nodes: 0, updated: '0 days ago', collaborators: 0 },
   ];
 
   return (

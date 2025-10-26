@@ -1,7 +1,7 @@
 import React from 'react';
 import { Plus, X, Download, Upload, Zap, ArrowLeft, Menu, Home, Brain, Search, Map, Settings, Share2, Star, Clock, Users } from 'lucide-react';
 import { Node, Connection } from './types';
-import { LanguageSwitcher } from '../LanguageSwitcher';
+import { LanguageSwitcher } from '../language/LanguageSwitcher';
 
 interface ToolbarProps {
   sidebarVisible: boolean;

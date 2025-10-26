@@ -6,6 +6,8 @@ import { Dashboard } from './components/Dashboard';
 import { MindMapCanvas } from './components/MindMapCanvas';
 import '@xyflow/react/dist/style.css';
 
+
+// MindMapCanvasを開く関数
 const MindMapApp: React.FC = () => {
   return (
     <div className="h-screen flex flex-col bg-gray-50">
@@ -14,14 +16,17 @@ const MindMapApp: React.FC = () => {
   );
 };
 
+
+// main.tsxで呼び出すメイン関数
 function App() {
   const { initialize } = useAuthStore();
 
   React.useEffect(() => {
-    // Initialize authentication state
+    // 認証状態の初期化
     initialize();
   }, [initialize]);
 
+  // ページ遷移(ルーティング)
   return (
     <Router>
       <Routes>

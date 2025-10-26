@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Brain, Sparkles, Users, Zap, ArrowRight, Star, Layers, Target, Lightbulb, Bot, Globe, Gauge, MessageSquare, Shield, Cpu, Cloud, Smartphone, Monitor } from 'lucide-react';
-import { LanguageSwitcher } from './LanguageSwitcher';
+import { LanguageSwitcher } from './language/LanguageSwitcher';
 import { useTranslation } from '../hooks/useTranslation';
 
 export const LandingPage: React.FC = () => {

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Globe, ChevronDown } from 'lucide-react';
-import { useTranslation, Language } from '../hooks/useTranslation';
+import { useTranslation, Language } from '../../hooks/useTranslation';
 
 interface LanguageSwitcherProps {
   variant?: 'header' | 'dropdown' | 'compact';
