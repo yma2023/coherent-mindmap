@@ -185,6 +185,7 @@ export interface Translations {
   // マインドマップ
   mindMap: {
     untitledMindMap: string;
+    mainIdea: string;
     newNode: string;
     untitledNode: string;
     addNode: string;
@@ -197,12 +198,22 @@ export interface Translations {
     saved: string;
     saving: string;
     export: string;
+    import: string;
     share: string;
     comments: string;
     tasks: string;
     selectNode: string;
     noComments: string;
     addComment: string;
+    hideSidebar: string;
+    showSidebar: string;
+    searchMaps: string;
+    recentMaps: string;
+    proPlan: string;
+    unlimitedMapsCollaboration: string;
+    navigationMode: string;
+    aiCommandPlaceholder: string;
+    backToDashboard: string;
     controls: {
       clickToSelect: string;
       doubleClickToEdit: string;
@@ -210,6 +221,17 @@ export interface Translations {
       dragToMove: string;
       scrollToZoom: string;
       dragCanvas: string;
+    };
+    keyboard: {
+      movement: string;
+      moveNode: string;
+      startEdit: string;
+      add: string;
+      addChildNode: string;
+      addSiblingNode: string;
+      operations: string;
+      deleteNode: string;
+      exitMode: string;
     };
   };
 
@@ -416,6 +438,7 @@ const translations: Record<Language, Translations> = {
     },
     mindMap: {
       untitledMindMap: 'Untitled Mind Map',
+      mainIdea: 'Main Idea',
       newNode: 'New Node',
       untitledNode: 'Untitled Node',
       addNode: 'Add Node',
@@ -428,12 +451,22 @@ const translations: Record<Language, Translations> = {
       saved: 'Saved',
       saving: 'Saving...',
       export: 'Export',
+      import: 'Import',
       share: 'Share',
       comments: 'Comments',
       tasks: 'Tasks',
       selectNode: 'Select a node to view comments',
       noComments: 'No comments yet',
       addComment: 'Add Comment',
+      hideSidebar: 'Hide Sidebar',
+      showSidebar: 'Show Sidebar',
+      searchMaps: 'Search maps...',
+      recentMaps: 'Recent Maps',
+      proPlan: 'Pro Plan',
+      unlimitedMapsCollaboration: 'Unlimited maps & collaboration',
+      navigationMode: 'Navigation Mode',
+      aiCommandPlaceholder: '/ai Generate project management methods...',
+      backToDashboard: 'Back to Dashboard',
       controls: {
         clickToSelect: '• Click node to select',
         doubleClickToEdit: '• Double-click to edit text',
@@ -441,6 +474,17 @@ const translations: Record<Language, Translations> = {
         dragToMove: '• Drag nodes to move them',
         scrollToZoom: '• Scroll to zoom in/out',
         dragCanvas: '• Drag canvas to pan',
+      },
+      keyboard: {
+        movement: 'Movement',
+        moveNode: 'Move node',
+        startEdit: 'Start editing',
+        add: 'Add',
+        addChildNode: 'Add child node',
+        addSiblingNode: 'Add sibling node',
+        operations: 'Operations',
+        deleteNode: 'Delete node',
+        exitMode: 'Exit mode',
       },
     },
     profile: {
@@ -500,7 +544,7 @@ const translations: Record<Language, Translations> = {
       home: 'ホーム',
     },
     landing: {
-      title: '思考を可視化する',
+      title: '話がまとまるマインドマップ',
       subtitle: 'AIを活用した次世代マインドマップで、あなたのアイデアを無限に広げましょう',
       createMindMapButton: 'マインドマップを作成',
       viewDashboardButton: 'ダッシュボードを表示',
@@ -583,9 +627,9 @@ const translations: Record<Language, Translations> = {
     },
     auth: {
       welcomeBack: 'おかえりなさい',
-      signInToAccount: 'MindFlowアカウントにサインイン',
+      signInToAccount: 'SOZOアカウントにサインイン',
       createAccount: 'アカウントを作成',
-      joinMindFlow: 'MindFlowに参加して、素晴らしいマインドマップを作成しましょう',
+      joinMindFlow: 'SOZO参加して、素晴らしいマインドマップを作成しましょう',
       emailAddress: 'メールアドレス',
       enterEmail: 'メールアドレスを入力',
       enterPassword: 'パスワードを入力',
@@ -640,6 +684,7 @@ const translations: Record<Language, Translations> = {
     },
     mindMap: {
       untitledMindMap: '無題のマインドマップ',
+      mainIdea: 'メインアイデア',
       newNode: '新しいノード',
       untitledNode: '無題のノード',
       addNode: 'ノードを追加',
@@ -652,12 +697,22 @@ const translations: Record<Language, Translations> = {
       saved: '保存済み',
       saving: '保存中...',
       export: 'エクスポート',
+      import: 'インポート',
       share: '共有',
       comments: 'コメント',
       tasks: 'タスク',
       selectNode: 'ノードを選択してコメントを表示',
       noComments: 'まだコメントがありません',
       addComment: 'コメントを追加',
+      hideSidebar: 'サイドバーを隠す',
+      showSidebar: 'サイドバーを表示',
+      searchMaps: 'マップを検索...',
+      recentMaps: '最近のマップ',
+      proPlan: 'プロプラン',
+      unlimitedMapsCollaboration: '無制限のマップと共同作業',
+      navigationMode: 'ナビゲーションモード',
+      aiCommandPlaceholder: '/ai プロジェクト管理手法を生成...',
+      backToDashboard: 'ダッシュボードに戻る',
       controls: {
         clickToSelect: '• ノードをクリックして選択',
         doubleClickToEdit: '• ダブルクリックでテキストを編集',
@@ -665,6 +720,17 @@ const translations: Record<Language, Translations> = {
         dragToMove: '• ノードをドラッグして移動',
         scrollToZoom: '• スクロールでズームイン/アウト',
         dragCanvas: '• キャンバスをドラッグしてパン',
+      },
+      keyboard: {
+        movement: '移動',
+        moveNode: 'ノード移動',
+        startEdit: '編集開始',
+        add: '追加',
+        addChildNode: '右に子ノード',
+        addSiblingNode: '下に兄弟ノード',
+        operations: '操作',
+        deleteNode: 'ノード削除',
+        exitMode: 'モード終了',
       },
     },
     profile: {

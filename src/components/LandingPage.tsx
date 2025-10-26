@@ -154,7 +154,7 @@ export const LandingPage: React.FC = () => {
                 className="text-2xl font-bold text-slate-800 transition-all duration-300"
                 style={{ fontSize: `${2 - scrollY * 0.001}rem` }}
               >
-                SOZO MAP
+                Mind Map
               </h1>
               <div className="flex items-center space-x-2 mt-1">
                 <div className="flex items-center space-x-1 bg-gradient-to-r from-amber-400 to-orange-400 text-white px-2 py-1 rounded-full text-xs font-semibold">

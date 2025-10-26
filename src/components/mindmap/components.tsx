@@ -2,6 +2,7 @@ import React from 'react';
 import { Plus, X, Download, Upload, Zap, ArrowLeft, Menu, Home, Brain, Search, Map, Settings, Share2, Star, Clock, Users } from 'lucide-react';
 import { Node, Connection } from './types';
 import { LanguageSwitcher } from '../language/LanguageSwitcher';
+import { useTranslation } from '../../hooks/useTranslation';
 
 interface ToolbarProps {
   sidebarVisible: boolean;
@@ -21,35 +22,38 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   handleBackToDashboard,
   currentMapName,
   hasUnsavedChanges,
-}) => (
+}) => {
+  const { t } = useTranslation();
+
+  return (
   <div className="bg-white/80 backdrop-blur-sm border-b border-white/50 px-4 py-3 shadow-lg">
     <div className="flex items-center justify-between">
       <div className="flex items-center space-x-1">
-        <button 
+        <button
           onClick={() => setSidebarVisible(!sidebarVisible)}
           className="p-2 text-slate-600 hover:text-slate-800 hover:bg-white/50 rounded-lg transition-colors mr-2"
-          title={sidebarVisible ? "Hide Sidebar" : "Show Sidebar"}
+          title={sidebarVisible ? t('mindMap.hideSidebar') : t('mindMap.showSidebar')}
         >
           {sidebarVisible ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
         </button>
         <div className="w-px h-6 bg-slate-300 mx-2" />
-        
+
         <div className="flex items-center space-x-2">
           <button
             onClick={triggerImport}
             className="flex items-center space-x-1 px-3 py-1.5 text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
-            title="マインドマップをインポート"
+            title={t('mindMap.import')}
           >
             <Upload className="w-4 h-4" />
-            <span className="hidden sm:inline">Import</span>
+            <span className="hidden sm:inline">{t('mindMap.import')}</span>
           </button>
           <button
             onClick={exportMindMap}
             className="flex items-center space-x-1 px-3 py-1.5 text-sm font-medium text-gray-700 hover:text-green-600 hover:bg-green-50 rounded-md transition-colors"
-            title="マインドマップをエクスポート"
+            title={t('mindMap.export')}
           >
             <Download className="w-4 h-4" />
-            <span className="hidden sm:inline">Export</span>
+            <span className="hidden sm:inline">{t('mindMap.export')}</span>
           </button>
         </div>
       </div>
@@ -59,20 +63,20 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           <div className="w-6 h-6 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
             <Brain className="w-4 h-4 text-white" />
           </div>
-          <button 
+          <button
             onClick={handleBackToDashboard}
             className="text-slate-500 hover:text-slate-700 transition-colors"
-            title="Back to Dashboard"
+            title={t('mindMap.backToDashboard')}
           >
             <Home className="w-4 h-4" />
           </button>
           <span className="text-slate-400">/</span>
           <h2 className="text-lg font-semibold text-slate-800">
-            {currentMapName || 'Untitled Mind Map'}
+            {currentMapName || t('mindMap.untitledMindMap')}
           </h2>
           {hasUnsavedChanges && (
             <span className="text-xs text-amber-700 bg-gradient-to-r from-amber-100 to-orange-100 px-2 py-1 rounded-full font-semibold">
-              Unsaved
+              {t('mindMap.unsaved')}
             </span>
           )}
         </div>
@@ -81,24 +85,28 @@ export const Toolbar: React.FC<ToolbarProps> = ({
       <div className="flex items-center space-x-1">
         <LanguageSwitcher variant="compact" />
         <div className="w-px h-6 bg-slate-300 mx-2" />
-        <button 
+        <button
           onClick={handleBackToDashboard}
           className="flex items-center space-x-2 px-3 py-2 text-slate-600 hover:text-slate-800 hover:bg-white/50 rounded-lg transition-colors text-sm font-semibold"
-          title="Back to Dashboard"
+          title={t('mindMap.backToDashboard')}
         >
           <ArrowLeft className="w-4 h-4" />
-          <span className="hidden sm:inline">Dashboard</span>
+          <span className="hidden sm:inline">{t('common.dashboard')}</span>
         </button>
       </div>
     </div>
   </div>
-);
+  );
+};
 
 interface SidebarProps {
   currentMapId?: string;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ currentMapId }) => (
+export const Sidebar: React.FC<SidebarProps> = ({ currentMapId }) => {
+  const { t } = useTranslation();
+
+  return (
   <div className="w-64 bg-white/80 backdrop-blur-sm border-r border-white/50 h-full flex flex-col shadow-lg">
     <div className="p-4 border-b border-white/30">
       <div className="flex items-center justify-between mb-4">
@@ -114,7 +122,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentMapId }) => (
         <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" />
         <input
           type="text"
-          placeholder="Search maps..."
+          placeholder={t('mindMap.searchMaps')}
           className="w-full pl-10 pr-4 py-2 bg-white/50 border border-white/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm backdrop-blur-sm"
         />
       </div>
@@ -122,7 +130,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentMapId }) => (
 
     <div className="flex-1 overflow-y-auto">
       <div className="p-4">
-        <h2 className="text-sm font-semibold text-slate-700 mb-3 uppercase tracking-wide">Recent Maps</h2>
+        <h2 className="text-sm font-semibold text-slate-700 mb-3 uppercase tracking-wide">{t('mindMap.recentMaps')}</h2>
         <div className="space-y-2">
           {[
             { id: '1', name: 'Project Strategy', nodes: 12, updated: '2 hours ago' },
@@ -144,7 +152,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentMapId }) => (
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-slate-800 truncate">{map.name}</p>
                   <div className="flex items-center space-x-2 text-xs text-slate-500">
-                    <span>{map.nodes} nodes</span>
+                    <span>{map.nodes} {t('dashboard.nodes')}</span>
                     <span>•</span>
                     <div className="flex items-center space-x-1">
                       <Clock className="w-3 h-3" />
@@ -171,13 +179,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentMapId }) => (
       <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-lg p-3">
         <div className="flex items-center space-x-2 mb-2">
           <Star className="w-4 h-4 text-amber-500" />
-          <span className="text-sm font-semibold text-amber-800">Pro Plan</span>
+          <span className="text-sm font-semibold text-amber-800">{t('mindMap.proPlan')}</span>
         </div>
-        <p className="text-xs text-amber-700">Unlimited maps & collaboration</p>
+        <p className="text-xs text-amber-700">{t('mindMap.unlimitedMapsCollaboration')}</p>
       </div>
     </div>
   </div>
-);
+  );
+};
 
 interface NodeComponentProps {
   node: Node;
@@ -493,6 +502,8 @@ interface NavigationModeDisplayProps {
 }
 
 export const NavigationModeDisplay: React.FC<NavigationModeDisplayProps> = ({ navigationMode }) => {
+  const { t } = useTranslation();
+
   if (!navigationMode) return null;
 
   return (
@@ -500,49 +511,49 @@ export const NavigationModeDisplay: React.FC<NavigationModeDisplayProps> = ({ na
       <div className="px-4 py-3 border-b border-white/20">
         <div className="flex items-center space-x-3">
           <div className="w-3 h-3 bg-white rounded-full animate-pulse shadow-sm"></div>
-          <span className="text-lg font-bold tracking-wide">ナビゲーションモード</span>
+          <span className="text-lg font-bold tracking-wide">{t('mindMap.navigationMode')}</span>
         </div>
       </div>
-      
+
       <div className="px-4 py-3 space-y-3">
         <div className="space-y-2">
-          <div className="text-sm font-semibold text-blue-100 uppercase tracking-wider">移動</div>
+          <div className="text-sm font-semibold text-blue-100 uppercase tracking-wider">{t('mindMap.keyboard.movement')}</div>
           <div className="grid grid-cols-2 gap-2 text-sm">
             <div className="flex items-center space-x-2">
               <kbd className="px-2 py-1 bg-white/20 rounded text-xs font-mono">↑↓←→</kbd>
-              <span className="text-white/90">ノード移動</span>
+              <span className="text-white/90">{t('mindMap.keyboard.moveNode')}</span>
             </div>
             <div className="flex items-center space-x-2">
               <kbd className="px-2 py-1 bg-white/20 rounded text-xs font-mono">Space</kbd>
-              <span className="text-white/90">編集開始</span>
+              <span className="text-white/90">{t('mindMap.keyboard.startEdit')}</span>
             </div>
           </div>
         </div>
-        
+
         <div className="space-y-2">
-          <div className="text-sm font-semibold text-green-200 uppercase tracking-wider">追加</div>
+          <div className="text-sm font-semibold text-green-200 uppercase tracking-wider">{t('mindMap.keyboard.add')}</div>
           <div className="grid grid-cols-2 gap-2 text-sm">
             <div className="flex items-center space-x-2">
               <kbd className="px-2 py-1 bg-green-500/30 rounded text-xs font-mono">Tab</kbd>
-              <span className="text-white/90">右に子ノード</span>
+              <span className="text-white/90">{t('mindMap.keyboard.addChildNode')}</span>
             </div>
             <div className="flex items-center space-x-2">
               <kbd className="px-2 py-1 bg-green-500/30 rounded text-xs font-mono">Enter</kbd>
-              <span className="text-white/90">下に兄弟ノード</span>
+              <span className="text-white/90">{t('mindMap.keyboard.addSiblingNode')}</span>
             </div>
           </div>
         </div>
-        
+
         <div className="space-y-2">
-          <div className="text-sm font-semibold text-red-200 uppercase tracking-wider">操作</div>
+          <div className="text-sm font-semibold text-red-200 uppercase tracking-wider">{t('mindMap.keyboard.operations')}</div>
           <div className="grid grid-cols-2 gap-2 text-sm">
             <div className="flex items-center space-x-2">
               <kbd className="px-2 py-1 bg-red-500/30 rounded text-xs font-mono">Del</kbd>
-              <span className="text-white/90">ノード削除</span>
+              <span className="text-white/90">{t('mindMap.keyboard.deleteNode')}</span>
             </div>
             <div className="flex items-center space-x-2">
               <kbd className="px-2 py-1 bg-gray-500/30 rounded text-xs font-mono">Esc</kbd>
-              <span className="text-white/90">モード終了</span>
+              <span className="text-white/90">{t('mindMap.keyboard.exitMode')}</span>
             </div>
           </div>
         </div>
@@ -566,6 +577,8 @@ export const AICommandInput: React.FC<AICommandInputProps> = ({
   onHandleAICommand,
   onClose,
 }) => {
+  const { t } = useTranslation();
+
   if (!showAICommand) return null;
 
   return (
@@ -573,7 +586,7 @@ export const AICommandInput: React.FC<AICommandInputProps> = ({
       <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-4 min-w-[400px]">
         <div className="flex items-center space-x-2 mb-3">
           <Zap className="w-5 h-5 text-yellow-500" />
-          <span className="text-sm font-medium text-gray-700">AI Assistant</span>
+          <span className="text-sm font-medium text-gray-700">{t('mindMap.aiAssistant')}</span>
         </div>
         <input
           type="text"
@@ -583,13 +596,13 @@ export const AICommandInput: React.FC<AICommandInputProps> = ({
             if (e.key === 'Enter') onHandleAICommand();
             if (e.key === 'Escape') onClose();
           }}
-          placeholder="/ai Generate project management methods..."
+          placeholder={t('mindMap.aiCommandPlaceholder')}
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           autoFocus
         />
         <div className="flex items-center justify-between mt-3 text-xs text-gray-500">
-          <span>Type your AI command and press Enter</span>
-          <span>ESC to cancel</span>
+          <span>{t('mindMap.typeAiCommand')}</span>
+          <span>{t('mindMap.escToCancel')}</span>
         </div>
       </div>
     </div>

@@ -7,7 +7,9 @@ import { useMindMapLogic } from './mindmap/useMindMapLogic.ts';
 import { useMindMapActions } from './mindmap/useMindMapActions';
 import { useMindMapUtils } from './mindmap/useMindMapUtils';
 import { useMindMapImportExport } from './mindmap/useMindMapImportExport';
-import { 
+import { useTranslation } from '../hooks/useTranslation';
+import { LanguageSwitcher } from './language/LanguageSwitcher';
+import {
   Toolbar,
   Sidebar,
   NodeComponent,
@@ -22,6 +24,7 @@ import {
 export const MindMapCanvas: React.FC = () => {
   // ルーター、翻訳、状態管理の初期化
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { currentMap, hasUnsavedChanges } = useMindMapStore();
   
   // マインドマップの状態管理フック
@@ -361,7 +364,7 @@ export const MindMapCanvas: React.FC = () => {
     // 未保存の変更があるかチェック
     if (hasUnsavedChanges) {
       const confirmLeave = window.confirm(
-        'You have unsaved changes. Are you sure you want to leave? Your changes will be lost.'
+        `${t('errors.unsavedChanges')} ${t('errors.confirmLeave')}`
       );
       if (!confirmLeave) return;
     }
@@ -373,15 +376,15 @@ export const MindMapCanvas: React.FC = () => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (hasUnsavedChanges) {
         e.preventDefault();
-        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+        e.returnValue = t('errors.unsavedChanges');
         return e.returnValue;
       }
     };
 
-    const handlePopState = (e: PopStateEvent) => {
+    const handlePopState = (_e: PopStateEvent) => {
       if (hasUnsavedChanges) {
         const confirmLeave = window.confirm(
-          'You have unsaved changes. Are you sure you want to leave? Your changes will be lost.'
+          `${t('errors.unsavedChanges')} ${t('errors.confirmLeave')}`
         );
         if (!confirmLeave) {
           window.history.pushState(null, '', window.location.href);
@@ -397,7 +400,7 @@ export const MindMapCanvas: React.FC = () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('popstate', handlePopState);
     };
-  }, [hasUnsavedChanges]);
+  }, [hasUnsavedChanges, t]);
 
   // 接続線の更新
   useEffect(() => {

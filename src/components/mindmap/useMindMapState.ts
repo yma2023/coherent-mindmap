@@ -1,18 +1,20 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Node, Connection, ViewState } from './types';
+import { useTranslation } from '../../hooks/useTranslation';
 
 
 // ==============================================
 // マインドマップの状態管理
 // ==============================================
 export const useMindMapState = () => {
-    // ノードリスト（初期値：メインアイデア）
+    const { t, currentLanguage } = useTranslation();
+
     const [nodes, setNodes] = useState<Node[]>([
       {
         id: '1',
         x: 200,        // X座標
         y: 300,        // Y座標
-        content: 'メインアイデア',
+        content: t('mindMap.mainIdea'),
         children: [],
         isEditing: false,
         isSelected: false,
@@ -21,7 +23,23 @@ export const useMindMapState = () => {
         width: 0,      // ノードの幅
       },
     ]);
-    
+
+    // 言語変更時にルートノードのテキストを更新
+    useEffect(() => {
+      setNodes(prevNodes => {
+        // ルートノード（id='1'）が存在し、まだデフォルトのテキストの場合のみ更新
+        const rootNode = prevNodes.find(n => n.id === '1' && !n.parentId);
+        if (rootNode && (rootNode.content === 'メインアイデア' || rootNode.content === 'Main Idea')) {
+          return prevNodes.map(node =>
+            node.id === '1' && !node.parentId
+              ? { ...node, content: t('mindMap.mainIdea') }
+              : node
+          );
+        }
+        return prevNodes;
+      });
+    }, [currentLanguage, t]);
+
     // 線の接続情報
     const [connections, setConnections] = useState<Connection[]>([]);
     
