@@ -3,10 +3,9 @@ import {
   BrowserRouter as Router,
   Routes,
   Route,
-  Navigate,
 } from "react-router-dom";
-import { LandingPage } from "./components/LandingPage";
-import { Dashboard } from "./components/Dashboard";
+// import { LandingPage } from "./components/LandingPage";
+// import { Dashboard } from "./components/Dashboard";
 import { MindMapCanvas } from "./components/MindMapCanvas";
 import "@xyflow/react/dist/style.css";
 
@@ -21,25 +20,35 @@ const MindMapApp: React.FC = () => {
 
 // main.tsxで呼び出すメイン関数
 function App() {
-  // ページ遷移(ルーティング)
+  // Only showing MindMapCanvas - all routes point to it
   return (
     <Router>
       <Routes>
-        {/* ランディングページ（エントリー画面） */}
-        <Route path="/" element={<LandingPage />} />
-
-        {/* Public routes */}
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/mindmap" element={<MindMapApp />} />
-
-        {/* Default redirect */}
-        <Route path="/home" element={<Navigate to="/dashboard" replace />} />
-
-        {/* Catch all route */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        {/* All routes show MindMapCanvas */}
+        <Route path="*" element={<MindMapApp />} />
       </Routes>
     </Router>
   );
+
+  // Uncomment below to enable routing to LandingPage and Dashboard
+  // return (
+  //   <Router>
+  //     <Routes>
+  //       {/* ランディングページ（エントリー画面） */}
+  //       <Route path="/" element={<LandingPage />} />
+
+  //       {/* Public routes */}
+  //       <Route path="/dashboard" element={<Dashboard />} />
+  //       <Route path="/mindmap" element={<MindMapApp />} />
+
+  //       {/* Default redirect */}
+  //       <Route path="/home" element={<Navigate to="/dashboard" replace />} />
+
+  //       {/* Catch all route */}
+  //       <Route path="*" element={<Navigate to="/" replace />} />
+  //     </Routes>
+  //   </Router>
+  // );
 }
 
 export default App;

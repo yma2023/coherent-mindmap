@@ -16,7 +16,7 @@ export const useMindMapState = () => {
       content: t("mindMap.mainIdea"),
       children: [],
       isEditing: false,
-      isSelected: false,
+      isSelected: true, // Select the root node by default
       isCollapsed: false,
       level: 0, // 階層レベル（ルートは0）
       width: 0, // ノードの幅
@@ -65,7 +65,7 @@ export const useMindMapState = () => {
   } | null>(null);
 
   // ナビゲーションモード（キーボードで移動可能）
-  const [navigationMode, setNavigationMode] = useState(false);
+  const [navigationMode, setNavigationMode] = useState(true);
 
   // 次に作成するノードのID
   const [nextNodeId, setNextNodeId] = useState(2);

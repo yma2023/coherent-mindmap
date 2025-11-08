@@ -5,10 +5,6 @@ import {
   Download,
   Upload,
   Zap,
-  ArrowLeft,
-  Menu,
-  Home,
-  Brain,
   Search,
   Map,
   Settings,
@@ -21,22 +17,14 @@ import { LanguageSwitcher } from "../language/LanguageSwitcher";
 import { useTranslation } from "../../hooks/useTranslation";
 
 interface ToolbarProps {
-  sidebarVisible: boolean;
-  setSidebarVisible: (visible: boolean) => void;
   triggerImport: () => void;
   exportMindMap: () => void;
-  handleBackToDashboard: () => void;
-  currentMapName?: string;
   hasUnsavedChanges: boolean;
 }
 
 export const Toolbar: React.FC<ToolbarProps> = ({
-  sidebarVisible,
-  setSidebarVisible,
   triggerImport,
   exportMindMap,
-  handleBackToDashboard,
-  currentMapName,
   hasUnsavedChanges,
 }) => {
   const { t } = useTranslation();
@@ -44,79 +32,35 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   return (
     <div className="bg-white/80 backdrop-blur-sm border-b border-white/50 px-4 py-3 shadow-lg">
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-1">
+        <div className="flex items-center space-x-2">
           <button
-            onClick={() => setSidebarVisible(!sidebarVisible)}
-            className="p-2 text-slate-600 hover:text-slate-800 hover:bg-white/50 rounded-lg transition-colors mr-2"
-            title={
-              sidebarVisible
-                ? t("mindMap.hideSidebar")
-                : t("mindMap.showSidebar")
-            }
+            onClick={triggerImport}
+            className="flex items-center space-x-1 px-3 py-1.5 text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+            title={t("mindMap.import")}
           >
-            {sidebarVisible ? (
-              <X className="w-4 h-4" />
-            ) : (
-              <Menu className="w-4 h-4" />
-            )}
+            <Upload className="w-4 h-4" />
+            <span className="hidden sm:inline">{t("mindMap.import")}</span>
           </button>
-          <div className="w-px h-6 bg-slate-300 mx-2" />
-
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={triggerImport}
-              className="flex items-center space-x-1 px-3 py-1.5 text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
-              title={t("mindMap.import")}
-            >
-              <Upload className="w-4 h-4" />
-              <span className="hidden sm:inline">{t("mindMap.import")}</span>
-            </button>
-            <button
-              onClick={exportMindMap}
-              className="flex items-center space-x-1 px-3 py-1.5 text-sm font-medium text-gray-700 hover:text-green-600 hover:bg-green-50 rounded-md transition-colors"
-              title={t("mindMap.export")}
-            >
-              <Download className="w-4 h-4" />
-              <span className="hidden sm:inline">{t("mindMap.export")}</span>
-            </button>
-          </div>
+          <button
+            onClick={exportMindMap}
+            className="flex items-center space-x-1 px-3 py-1.5 text-sm font-medium text-gray-700 hover:text-green-600 hover:bg-green-50 rounded-md transition-colors"
+            title={t("mindMap.export")}
+          >
+            <Download className="w-4 h-4" />
+            <span className="hidden sm:inline">{t("mindMap.export")}</span>
+          </button>
         </div>
 
         <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <div className="w-6 h-6 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
-              <Brain className="w-4 h-4 text-white" />
-            </div>
-            <button
-              onClick={handleBackToDashboard}
-              className="text-slate-500 hover:text-slate-700 transition-colors"
-              title={t("mindMap.backToDashboard")}
-            >
-              <Home className="w-4 h-4" />
-            </button>
-            <span className="text-slate-400">/</span>
-            <h2 className="text-lg font-semibold text-slate-800">
-              {currentMapName || t("mindMap.untitledMindMap")}
-            </h2>
-            {hasUnsavedChanges && (
-              <span className="text-xs text-amber-700 bg-gradient-to-r from-amber-100 to-orange-100 px-2 py-1 rounded-full font-semibold">
-                {t("mindMap.unsaved")}
-              </span>
-            )}
-          </div>
+          {hasUnsavedChanges && (
+            <span className="text-xs text-amber-700 bg-gradient-to-r from-amber-100 to-orange-100 px-2 py-1 rounded-full font-semibold">
+              {t("mindMap.unsaved")}
+            </span>
+          )}
         </div>
 
         <div className="flex items-center space-x-1">
           <LanguageSwitcher variant="compact" />
-          <div className="w-px h-6 bg-slate-300 mx-2" />
-          <button
-            onClick={handleBackToDashboard}
-            className="flex items-center space-x-2 px-3 py-2 text-slate-600 hover:text-slate-800 hover:bg-white/50 rounded-lg transition-colors text-sm font-semibold"
-            title={t("mindMap.backToDashboard")}
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">{t("common.dashboard")}</span>
-          </button>
         </div>
       </div>
     </div>

@@ -1,5 +1,4 @@
 import React, { useCallback, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { useMindMapStore } from "../stores/mindMapStore";
 import { MIN_SCALE, MAX_SCALE } from "./mindmap/constants";
 import { useMindMapState } from "./mindmap/useMindMapState";
@@ -10,7 +9,6 @@ import { useMindMapImportExport } from "./mindmap/useMindMapImportExport";
 import { useTranslation } from "../hooks/useTranslation";
 import {
   Toolbar,
-  Sidebar,
   NodeComponent,
   Connections,
   ExpandButton,
@@ -21,8 +19,7 @@ import {
 } from "./mindmap/components";
 
 export const MindMapCanvas: React.FC = () => {
-  // ルーター、翻訳、状態管理の初期化
-  const navigate = useNavigate();
+  // 翻訳、状態管理の初期化
   const { t } = useTranslation();
   const { currentMap, hasUnsavedChanges } = useMindMapStore();
 
@@ -46,8 +43,6 @@ export const MindMapCanvas: React.FC = () => {
     setShowAICommand,
     aiPrompt, // AIプロンプト
     setAIPrompt,
-    sidebarVisible, // サイドバーの表示状態
-    setSidebarVisible,
   } = useMindMapState();
 
   // DOM要素への参照
@@ -388,17 +383,6 @@ export const MindMapCanvas: React.FC = () => {
     setAIPrompt,
   ]);
 
-  // ダッシュボードに戻る処理
-  const handleBackToDashboard = () => {
-    // 未保存の変更があるかチェック
-    if (hasUnsavedChanges) {
-      const confirmLeave = window.confirm(
-        `${t("errors.unsavedChanges")} ${t("errors.confirmLeave")}`,
-      );
-      if (!confirmLeave) return;
-    }
-    navigate("/dashboard");
-  };
 
   // ページを離れる時の警告処理
   useEffect(() => {
@@ -460,12 +444,8 @@ export const MindMapCanvas: React.FC = () => {
 
       {/* ツールバー */}
       <Toolbar
-        sidebarVisible={sidebarVisible}
-        setSidebarVisible={setSidebarVisible}
         triggerImport={triggerImport}
         exportMindMap={exportMindMap}
-        handleBackToDashboard={handleBackToDashboard}
-        currentMapName={currentMap?.name}
         hasUnsavedChanges={hasUnsavedChanges}
       />
 
@@ -479,9 +459,6 @@ export const MindMapCanvas: React.FC = () => {
       />
 
       <div className="flex flex-1 overflow-hidden">
-        {/* サイドバー */}
-        {sidebarVisible && <Sidebar currentMapId={currentMap?.id} />}
-
         {/* メインキャンバスエリア */}
         <div className="flex-1 relative bg-gray-100 overflow-hidden">
           <div

@@ -1,9 +1,6 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   Save,
-  Download,
-  Upload,
   Undo,
   Redo,
   ZoomIn,
@@ -12,24 +9,12 @@ import {
   Palette,
   Layout,
   FileText,
-  ArrowLeft,
-  Home, Brain,
+  Brain,
 } from 'lucide-react';
 import { useMindMapStore } from '../../stores/mindMapStore';
 
 export const Toolbar: React.FC = () => {
-  const navigate = useNavigate();
   const { currentMap, hasUnsavedChanges } = useMindMapStore();
-
-  const handleBackToDashboard = () => {
-    if (hasUnsavedChanges) {
-      const confirmLeave = window.confirm(
-        'You have unsaved changes. Are you sure you want to leave? Your changes will be lost.'
-      );
-      if (!confirmLeave) return;
-    }
-    navigate('/dashboard');
-  };
 
   return (
     <div className="bg-white/80 backdrop-blur-sm border-b border-white/50 px-4 py-3 shadow-lg">
@@ -60,14 +45,6 @@ export const Toolbar: React.FC = () => {
             <div className="w-6 h-6 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
               <Brain className="w-4 h-4 text-white" />
             </div>
-            <button 
-              onClick={handleBackToDashboard}
-              className="text-slate-500 hover:text-slate-700 transition-colors"
-              title="Back to Dashboard"
-            >
-              <Home className="w-4 h-4" />
-            </button>
-            <span className="text-slate-400">/</span>
             <h2 className="text-lg font-semibold text-slate-800">
               {currentMap?.name || 'Untitled Mind Map'}
             </h2>
@@ -95,15 +72,6 @@ export const Toolbar: React.FC = () => {
           <button className="flex items-center space-x-2 px-3 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg transition-all duration-200 text-sm font-semibold shadow-md">
             <Users className="w-4 h-4" />
             <span>Share</span>
-          </button>
-          <div className="w-px h-6 bg-slate-300 mx-2" />
-          <button 
-            onClick={handleBackToDashboard}
-            className="flex items-center space-x-2 px-3 py-2 text-slate-600 hover:text-slate-800 hover:bg-white/50 rounded-lg transition-colors text-sm font-semibold"
-            title="Back to Dashboard"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">Dashboard</span>
           </button>
         </div>
       </div>
