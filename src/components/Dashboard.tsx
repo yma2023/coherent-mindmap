@@ -5,25 +5,18 @@ import {
   Map,
   Users,
   Clock,
-  LogOut,
   Brain,
   BarChart3,
   Zap,
+  Home,
 } from "lucide-react";
 
-import { useAuthStore } from "../stores/authStore";
 import { useTranslation } from "../hooks/useTranslation";
 import { LanguageSwitcher } from "./language/LanguageSwitcher";
 
 export const Dashboard: React.FC = () => {
   const { t } = useTranslation();
-  const { user, profile, logout } = useAuthStore();
   const navigate = useNavigate();
-
-  const handleLogout = async () => {
-    await logout();
-    navigate("/login");
-  };
 
   const handleCreateMindMap = () => {
     // Create a new mind map with a default name
@@ -34,12 +27,11 @@ export const Dashboard: React.FC = () => {
       edges: [],
       createdAt: Date.now(),
       updatedAt: Date.now(),
-      ownerId: user?.id || "",
+      ownerId: "",
       collaborators: [],
     };
 
-    // You would typically save this to the database here
-    // For now, we'll just navigate to the mind map editor
+    // Navigate to the mind map editor
     navigate("/mindmap", { state: { mindMap: newMap } });
   };
 
@@ -86,22 +78,12 @@ export const Dashboard: React.FC = () => {
             <div className="flex items-center space-x-4">
               <LanguageSwitcher variant="compact" />
               <button
-                onClick={() => navigate("/profile")}
-                className="flex items-center space-x-2 text-slate-600 hover:text-slate-800 transition-colors"
+                onClick={() => navigate("/")}
+                className="flex items-center space-x-2 px-4 py-2 text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
+                title="Go to Home"
               >
-                {/* <div className="h-8 w-8 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-full flex items-center justify-center">
-                  <span className="text-sm font-medium text-white">
-                    {profile?.full_name?.charAt(0) || user?.email?.charAt(0) || 'U'}
-                  </span>
-                </div> */}
-                {/* <span className="text-sm font-medium text-slate-700">{profile?.full_name || 'User'}</span> */}
-              </button>
-
-              <button
-                onClick={handleLogout}
-                className="p-2 text-slate-500 hover:text-slate-700 transition-colors"
-              >
-                <LogOut className="h-5 w-5" />
+                <Home className="h-5 w-5" />
+                <span className="text-sm font-medium">Home</span>
               </button>
             </div>
           </div>
@@ -113,8 +95,7 @@ export const Dashboard: React.FC = () => {
         {/* Welcome Section */}
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-slate-800 mb-2">
-            {t("dashboard.welcomeBack")}{" "}
-            {profile?.full_name || t("dashboard.welcomeThere")}
+            {t("dashboard.welcomeBack")} {t("dashboard.welcomeThere")}
           </h2>
           <p className="text-slate-600 text-lg">
             {t("dashboard.readyToCreate")}

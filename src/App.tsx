@@ -5,7 +5,6 @@ import {
   Route,
   Navigate,
 } from "react-router-dom";
-import { useAuthStore } from "./stores/authStore";
 import { LandingPage } from "./components/LandingPage";
 import { Dashboard } from "./components/Dashboard";
 import { MindMapCanvas } from "./components/MindMapCanvas";
@@ -22,13 +21,6 @@ const MindMapApp: React.FC = () => {
 
 // main.tsxで呼び出すメイン関数
 function App() {
-  const { initialize } = useAuthStore();
-
-  React.useEffect(() => {
-    // 認証状態の初期化
-    initialize();
-  }, [initialize]);
-
   // ページ遷移(ルーティング)
   return (
     <Router>
@@ -36,7 +28,7 @@ function App() {
         {/* ランディングページ（エントリー画面） */}
         <Route path="/" element={<LandingPage />} />
 
-        {/* Public routes - no authentication required */}
+        {/* Public routes */}
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/mindmap" element={<MindMapApp />} />
 
