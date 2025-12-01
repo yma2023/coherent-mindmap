@@ -4,9 +4,8 @@ A beautiful, interactive mind mapping application built with React and TypeScrip
 
 ## Screenshots
 
-<img width="1231" height="787" alt="スクリーンショット 2025-12-01 21 54 15" src="https://github.com/user-attachments/assets/cb29120a-8ccd-4bd5-b982-c70b93c35409" />
+<img width="1229" height="787" alt="スクリーンショット 2025-12-01 22 07 09" src="https://github.com/user-attachments/assets/88603f86-6f5d-4700-98a0-3604ec78d8d9" />
 
-<img width="1076" height="532" alt="スクリーンショット 2025-12-01 21 55 19" src="https://github.com/user-attachments/assets/005407af-20bd-4404-beab-8375ff895564" />
 
 ## Features
 
