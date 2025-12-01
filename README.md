@@ -40,7 +40,7 @@ A beautiful, interactive mind mapping application built with React and TypeScrip
 1. Clone the repository:
 ```bash
 git clone <repository-url>
-cd mindmap-vol5
+cd coherent-mindmap
 ```
 
 2. Install dependencies:
@@ -65,7 +65,7 @@ npm run dev
 ## Project Structure
 
 ```
-mindmap-vol5/
+coherent-mindmap/
 ├── src/
 │   ├── components/      # React components
 │   │   ├── mindmap/    # Mind map specific components
